@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <functional>
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
@@ -24,15 +25,25 @@ private:
   XdpSession *m_Session = nullptr;
   Data m_Data{};
 
+  PipeWireSource *m_Source;
   GMainLoop *m_MainLoop;
   gulong m_SessionClosedHandler = 0;
-  
+
+  GSourceFuncs m_PipewireSourceFuncs;
+
+  int m_PWFD = 0;
+  guint32 m_TargetId = 0;
+
+  bool m_IsSessionStarted = false;
+  bool m_IsPipewireInitialized = false;
+  bool m_IsRunning = true;
+
   static void onProcessStream(void *data);
+
+  void InitializePipewire();
 
   static void onStateChanged(void *data, pw_stream_state old,
                              pw_stream_state state, const char *error);
-
-  static void onInitializePipewire(Stream *self, int pw_fd, uint32_t target_id);
 
   static void onStartSession(GObject *source_object, GAsyncResult *res,
                              gpointer data);
