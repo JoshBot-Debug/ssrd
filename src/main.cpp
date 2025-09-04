@@ -1,4 +1,6 @@
+#include <array>
 #include <iostream>
+#include <vector>
 
 #include <glib-unix.h>
 #include <glib.h>
@@ -12,6 +14,8 @@
 
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
+
+#include <fstream>
 
 struct PwData {
   pw_loop *loop = nullptr;
@@ -38,6 +42,7 @@ struct Data {
   int pw_fd = 0;
   guint32 target_id = 0;
 
+  spa_video_info format{};
   spa_rectangle dimensions = SPA_RECTANGLE(1920, 1080);
 };
 
@@ -52,6 +57,84 @@ static void onSessionClosed(GObject *sourceObject, gpointer userData) {
     g_main_loop_quit(data->g.loop);
 
   std::cout << "Session closed" << std::endl;
+}
+
+struct PixelFormatInfo {
+  int bytesPerPixel;
+  std::array<int, 3> order;
+};
+
+static inline PixelFormatInfo pixelFormatInfo(enum spa_video_format format) {
+  switch (format) {
+  case SPA_VIDEO_FORMAT_RGB: // R G B
+    return {3, {0, 1, 2}};
+  case SPA_VIDEO_FORMAT_BGR: // B G R
+    return {3, {2, 1, 0}};
+
+  case SPA_VIDEO_FORMAT_RGBx: // R G B X
+  case SPA_VIDEO_FORMAT_RGBA: // R G B A
+    return {4, {0, 1, 2}};
+  case SPA_VIDEO_FORMAT_BGRx: // B G R X
+  case SPA_VIDEO_FORMAT_BGRA: // B G R A
+    return {4, {2, 1, 0}};
+
+  case SPA_VIDEO_FORMAT_xRGB: // X R G B
+  case SPA_VIDEO_FORMAT_ARGB: // A R G B
+    return {4, {1, 2, 3}};
+  case SPA_VIDEO_FORMAT_xBGR: // X B G R
+  case SPA_VIDEO_FORMAT_ABGR: // A B G R
+    return {4, {3, 2, 1}};
+
+  case SPA_VIDEO_FORMAT_GRAY8: // Grayscale → R=G=B=Y
+    return {1, {0, 0, 0}};
+
+  // Planar YUV formats need special handling (conversion)
+  case SPA_VIDEO_FORMAT_I420:
+  case SPA_VIDEO_FORMAT_YV12:
+  case SPA_VIDEO_FORMAT_NV12:
+  case SPA_VIDEO_FORMAT_YUY2:
+    throw std::runtime_error("Unhandled planar video format");
+
+  default:
+    throw std::runtime_error("Unhandled video format");
+  }
+}
+
+static inline void writePPM(const std::string &filename, const uint8_t *frame,
+                            int width, int height, spa_video_format format) {
+
+  PixelFormatInfo formatInfo = pixelFormatInfo(format);
+  int stride = width * formatInfo.bytesPerPixel;
+
+  std::ofstream out(filename, std::ios::binary);
+  if (!out.is_open()) {
+    std::cerr << "Failed to open " << filename << std::endl;
+    return;
+  }
+
+  // PPM header
+  out << "P6\n" << width << " " << height << "\n255\n";
+
+  std::vector<uint8_t> row_rgb(width * 3);
+
+  for (int y = 0; y < height; y++) {
+    const uint8_t *src = frame + y * stride;
+    uint8_t *dst = row_rgb.data();
+
+    for (int x = 0; x < width; x++) {
+      dst[0] = src[formatInfo.order[0]]; // R
+      dst[1] = src[formatInfo.order[1]]; // G
+      dst[2] = src[formatInfo.order[2]]; // B
+      src += formatInfo.bytesPerPixel;
+      dst += 3;
+    }
+
+    out.write(reinterpret_cast<const char *>(row_rgb.data()), row_rgb.size());
+  }
+
+  out.close();
+  std::cout << "Wrote " << filename << " (" << width << "x" << height << ", "
+            << formatInfo.bytesPerPixel << " bytes/pixel)\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -126,24 +209,70 @@ int main(int argc, char *argv[]) {
 
         data->pw.streamEvents.version = PW_VERSION_STREAM_EVENTS;
 
+        // Gets the video's format, size & framerate
+        data->pw.streamEvents.param_changed = [](void *userData, uint32_t id,
+                                                 const struct spa_pod *param) {
+          std::cout << "onParamChanged()" << std::endl;
+
+          auto *data = static_cast<Data *>(userData);
+
+          if (param == NULL || id != SPA_PARAM_Format)
+            return;
+
+          if (spa_format_parse(param, &data->format.media_type,
+                               &data->format.media_subtype) < 0)
+            return;
+
+          if (data->format.media_type != SPA_MEDIA_TYPE_video ||
+              data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+            return;
+
+          if (spa_format_video_raw_parse(param, &data->format.info.raw) < 0)
+            return;
+
+          printf("got video format:\n");
+          printf("  format: %d (%s)\n", data->format.info.raw.format,
+                 spa_debug_type_find_name(spa_type_video_format,
+                                          data->format.info.raw.format));
+          printf("  size: %dx%d\n", data->format.info.raw.size.width,
+                 data->format.info.raw.size.height);
+          printf("  framerate: %d/%d\n", data->format.info.raw.framerate.num,
+                 data->format.info.raw.framerate.denom);
+        };
+
         data->pw.streamEvents.process = [](void *userData) {
           std::cout << "onProcessStream()" << std::endl;
 
           auto *data = static_cast<Data *>(userData);
 
           pw_buffer *b = pw_stream_dequeue_buffer(data->pw.stream);
+
           if (!b)
             return;
 
           spa_data *d = b->buffer->datas;
 
-          if (d[0].chunk->size > 0) {
+          if (d[0].chunk->size == 0 || d[0].data == NULL) {
+            pw_stream_queue_buffer(data->pw.stream, b);
+            return;
+          }
+
+          // Save the frame to disk
+          {
             uint8_t *frame =
                 (uint8_t *)SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
             size_t size = d[0].chunk->size;
 
-            std::cout << "Got frame, size = " << size << " bytes" << std::endl;
-            // TODO: use frame data (e.g., copy, encode, write to file)
+            // TODO: You must know your frame format & resolution here!
+            int width = data->format.info.raw.size.width;
+            int height = data->format.info.raw.size.height;
+
+            static int frame_id = 0;
+            std::string filename =
+                "frame_" + std::to_string(frame_id++) + ".ppm";
+
+            writePPM(filename, frame, width, height,
+                     data->format.info.raw.format);
           }
 
           pw_stream_queue_buffer(data->pw.stream, b);

@@ -53,6 +53,7 @@ pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
 pkg_check_modules(TBB REQUIRED tbb)
 pkg_check_modules(PORTAL REQUIRED libportal)
 pkg_check_modules(PORTAL_GTK REQUIRED libportal-gtk4)
+pkg_check_modules(JPEG REQUIRED libjpeg)
 
 message(STATUS "TBB_LIBRARIES = ${TBB_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")

@@ -74,6 +74,7 @@
     "regex": "cpp",
     "mutex": "cpp",
     "shared_mutex": "cpp",
-    "cfenv": "cpp"
+    "cfenv": "cpp",
+    "fstream": "cpp"
   }
 }
