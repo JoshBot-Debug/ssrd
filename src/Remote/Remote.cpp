@@ -205,6 +205,12 @@ void Remote::onStreamParamsChange(void *userData, uint32_t id,
       data->format.info.raw.size.height);
   LOG("  framerate:", data->format.info.raw.framerate.num,
       data->format.info.raw.framerate.denom);
+
+  uint32_t pixels =
+      data->format.info.raw.size.height * data->format.info.raw.size.width;
+
+  // Resize the framebuffer to fit the image size
+  data->frameBuffer.resize(pixels * 3);
 }
 
 void Remote::onStreamProcess(void *userData) {
@@ -228,14 +234,12 @@ void Remote::onStreamProcess(void *userData) {
   int width = data->format.info.raw.size.width;
   int height = data->format.info.raw.size.height;
 
-  // TODO handle the format
-  // writePPM(filename, frame, width, height,
-  // data->format.info.raw.format);
-
   static int frame_id = 0;
   std::string filename = "frame_" + std::to_string(frame_id++) + ".ppm";
 
-  writePPM(filename, frame, width, height, data->format.info.raw.format);
+  writeTobuffer(&data->frameBuffer, frame, width, height,
+                data->format.info.raw.format);
+
 
   pw_stream_queue_buffer(data->pw.stream, b);
 }

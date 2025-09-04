@@ -50,54 +50,51 @@ static inline PixelFormatInfo pixelFormatInfo(enum spa_video_format format) {
   case SPA_VIDEO_FORMAT_ABGR: // A B G R
     return {4, {3, 2, 1}};
 
-  case SPA_VIDEO_FORMAT_GRAY8: // Grayscale → R=G=B=Y
-    return {1, {0, 0, 0}};
-
-  // Planar YUV formats need special handling (conversion)
+  /// TODO: Handle these two formats
   case SPA_VIDEO_FORMAT_I420:
-  case SPA_VIDEO_FORMAT_YV12:
   case SPA_VIDEO_FORMAT_NV12:
-  case SPA_VIDEO_FORMAT_YUY2:
-    throw std::runtime_error("Unhandled planar video format");
+    throw std::runtime_error(
+        "Unhandled video format, will be added in the future");
 
   default:
     throw std::runtime_error("Unhandled video format");
   }
 }
 
-static inline void writePPM(const std::string &filename, const uint8_t *frame,
-                            int width, int height, spa_video_format format) {
+static inline void writeTobuffer(std::vector<uint8_t> *buffer,
+                                 const uint8_t *frame, int width, int height,
+                                 spa_video_format format) {
 
   PixelFormatInfo formatInfo = pixelFormatInfo(format);
   int stride = width * formatInfo.bytesPerPixel;
 
+  uint8_t *destination = buffer->data();
+
+  uint32_t offset = 0;
+
+  for (int y = 0; y < height; y++) {
+    const uint8_t *src = frame + y * stride;
+    for (int x = 0; x < width; x++) {
+      destination[offset + 0] = src[formatInfo.order[0]]; // R
+      destination[offset + 1] = src[formatInfo.order[1]]; // G
+      destination[offset + 2] = src[formatInfo.order[2]]; // B
+      src += formatInfo.bytesPerPixel;
+      offset += 3;
+    }
+  }
+}
+
+static void writeRGBBufferToPPM(const std::string &filename,
+                                const std::vector<uint8_t> &buffer, int width,
+                                int height) {
   std::ofstream out(filename, std::ios::binary);
+
   if (!out.is_open()) {
     std::cerr << "Failed to open " << filename << std::endl;
     return;
   }
 
-  // PPM header
   out << "P6\n" << width << " " << height << "\n255\n";
-
-  std::vector<uint8_t> row_rgb(width * 3);
-
-  for (int y = 0; y < height; y++) {
-    const uint8_t *src = frame + y * stride;
-    uint8_t *dst = row_rgb.data();
-
-    for (int x = 0; x < width; x++) {
-      dst[0] = src[formatInfo.order[0]]; // R
-      dst[1] = src[formatInfo.order[1]]; // G
-      dst[2] = src[formatInfo.order[2]]; // B
-      src += formatInfo.bytesPerPixel;
-      dst += 3;
-    }
-
-    out.write(reinterpret_cast<const char *>(row_rgb.data()), row_rgb.size());
-  }
-
+  out.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
   out.close();
-
-  LOG("Wrote", filename, "(", width, "x", height, ")");
 }
