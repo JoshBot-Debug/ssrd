@@ -234,9 +234,6 @@ void Remote::onStreamProcess(void *userData) {
   int width = data->format.info.raw.size.width;
   int height = data->format.info.raw.size.height;
 
-  static int frame_id = 0;
-  std::string filename = "frame_" + std::to_string(frame_id++) + ".h264";
-
   writeTobuffer(&data->rawFrameBuffer, frame, width, height,
                 data->format.info.raw.format);
 
