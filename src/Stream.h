@@ -10,6 +10,8 @@ struct Data {
   pw_core *core = nullptr;
   pw_stream *stream = nullptr;
   spa_hook stream_listener;
+  int pwfd = 0;
+  guint32 targetId = 0;
 };
 
 struct PipeWireSource {
@@ -32,7 +34,7 @@ private:
   static void onStateChanged(void *data, pw_stream_state old,
                              pw_stream_state state, const char *error);
 
-  static void onInitializePipewire(Stream *self, int pw_fd, uint32_t target_id);
+  static void onInitializePipewire(Stream *self);
 
   static void onStartSession(GObject *source_object, GAsyncResult *res,
                              gpointer data);

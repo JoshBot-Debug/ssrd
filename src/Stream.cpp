@@ -34,24 +34,12 @@ void Stream::onStateChanged(void *data, pw_stream_state old,
   }
 }
 
-void Stream::onInitializePipewire(Stream *self, int pw_fd, uint32_t target_id) {
-  std::cout << "onInitializePipewire(" << pw_fd << ", target_id=" << target_id
-            << ")" << std::endl;
+void Stream::onInitializePipewire(Stream *self) {
+  std::cout << "onInitializePipewire(" << self->m_Data.pwfd
+            << ", target_id=" << self->m_Data.targetId << ")" << std::endl;
 
-  pw_init(nullptr, nullptr);
-
-  self->m_Data.loop = pw_loop_new(nullptr);
-
-  if (!self->m_Data.loop)
-    throw std::runtime_error("Failed to create PipeWire main loop");
-
-  self->m_Data.context = pw_context_new(self->m_Data.loop, nullptr, 0);
-
-  if (!self->m_Data.context)
-    throw std::runtime_error("Failed to create PipeWire context");
-
-  self->m_Data.core =
-      pw_context_connect_fd(self->m_Data.context, pw_fd, nullptr, 0);
+  self->m_Data.core = pw_context_connect_fd(self->m_Data.context,
+                                            self->m_Data.pwfd, nullptr, 0);
 
   if (self->m_Data.core == nullptr)
     throw std::runtime_error("Failed to connect to PipeWire remote");
@@ -83,12 +71,12 @@ void Stream::onInitializePipewire(Stream *self, int pw_fd, uint32_t target_id) {
                              SPA_VIDEO_FORMAT_RGBx, SPA_VIDEO_FORMAT_BGRx,
                              SPA_VIDEO_FORMAT_YUY2, SPA_VIDEO_FORMAT_I420)));
 
-  pw_stream_connect(self->m_Data.stream, PW_DIRECTION_INPUT, target_id,
+  pw_stream_connect(self->m_Data.stream, PW_DIRECTION_INPUT,
+                    self->m_Data.targetId,
                     (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
                                       PW_STREAM_FLAG_MAP_BUFFERS),
                     params, 1);
 }
-
 
 static gboolean pipewire_loop_source_dispatch(GSource *source,
                                               GSourceFunc callback,
@@ -137,21 +125,19 @@ void Stream::onStartSession(GObject *source_object, GAsyncResult *res,
 
   // Assume first stream (for single monitor); iterate if multiple
   GVariant *child = g_variant_get_child_value(streams, 0);
-  guint32 target_id;
-  g_variant_get(child, "(u@a{sv})", &target_id, nullptr);
+  g_variant_get(child, "(u@a{sv})", &self->m_Data.targetId, nullptr);
   g_variant_unref(child);
   g_variant_unref(streams);
 
-  std::cout << "Got screencast node ID: " << target_id << std::endl;
+  std::cout << "Got screencast node ID: " << self->m_Data.targetId << std::endl;
 
-  int pw_fd = xdp_session_open_pipewire_remote(self->m_Session);
-  if (pw_fd < 0) {
+  self->m_Data.pwfd = xdp_session_open_pipewire_remote(self->m_Session);
+  if (self->m_Data.pwfd < 0) {
     std::cerr << "Failed to open PipeWire remote" << std::endl;
     return;
   }
 
-  std::cout << "Got PipeWire remote fd: " << pw_fd << std::endl;
-  onInitializePipewire(self, pw_fd, target_id);
+  std::cout << "Got PipeWire remote fd: " << self->m_Data.pwfd << std::endl;
 
   PipeWireSource *source = (PipeWireSource *)g_source_new(
       &pipewire_source_funcs, sizeof(PipeWireSource));
@@ -163,6 +149,7 @@ void Stream::onStartSession(GObject *source_object, GAsyncResult *res,
 
   g_source_attach(&source->base, g_main_loop_get_context(self->m_MainLoop));
   g_source_unref(&source->base);
+  g_main_loop_quit(self->m_MainLoop);
 }
 
 void Stream::onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
@@ -207,8 +194,10 @@ Stream::~Stream() {
     pw_core_disconnect(m_Data.core);
   if (m_Data.context)
     pw_context_destroy(m_Data.context);
-  if (m_Data.loop)
+  if (m_Data.loop) {
+    pw_loop_leave(m_Data.loop);
     pw_loop_destroy(m_Data.loop);
+  }
   if (m_MainLoop)
     g_main_loop_unref(m_MainLoop);
 
@@ -217,6 +206,18 @@ Stream::~Stream() {
 
 void Stream::begin(std::function<void(spa_buffer *spa_buf)> onStream) {
   m_OnStream = onStream;
+
+  pw_init(nullptr, nullptr);
+
+  m_Data.loop = pw_loop_new(nullptr);
+
+  if (!m_Data.loop)
+    throw std::runtime_error("Failed to create PipeWire main loop");
+
+  m_Data.context = pw_context_new(m_Data.loop, nullptr, 0);
+
+  if (!m_Data.context)
+    throw std::runtime_error("Failed to create PipeWire context");
 
   m_Portal = xdp_portal_new();
 
@@ -233,5 +234,15 @@ void Stream::begin(std::function<void(spa_buffer *spa_buf)> onStream) {
       XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
       XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, this);
 
+  // onInitializePipewire(self);
+
+  // pw_loop_enter(m_Data.loop);
   g_main_loop_run(m_MainLoop);
+
+  
+  onInitializePipewire(this);
+
+  pw_loop_enter(m_Data.loop);
+  g_main_loop_run(m_MainLoop);
+  std::cout << m_Data.pwfd << std::endl;
 }
