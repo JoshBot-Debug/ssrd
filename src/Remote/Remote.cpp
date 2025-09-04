@@ -201,16 +201,16 @@ void Remote::onStreamParamsChange(void *userData, uint32_t id,
   LOG("Video format:");
   LOG("  format:", spa_debug_type_find_name(spa_type_video_format,
                                             data->format.info.raw.format));
-  LOG("  size:", data->format.info.raw.size.width,
-      data->format.info.raw.size.height);
+
+  int width = data->format.info.raw.size.width;
+  int height = data->format.info.raw.size.height;
+  LOG("  size:", width, height);
   LOG("  framerate:", data->format.info.raw.framerate.num,
       data->format.info.raw.framerate.denom);
 
-  uint32_t pixels =
-      data->format.info.raw.size.height * data->format.info.raw.size.width;
-
   // Resize the framebuffer to fit the image size
-  data->frameBuffer.resize(pixels * 3);
+  data->rawFrameBuffer.resize((width * height) * 3);
+  data->encoder.initialize(width, height);
 }
 
 void Remote::onStreamProcess(void *userData) {
@@ -235,11 +235,14 @@ void Remote::onStreamProcess(void *userData) {
   int height = data->format.info.raw.size.height;
 
   static int frame_id = 0;
-  std::string filename = "frame_" + std::to_string(frame_id++) + ".ppm";
+  std::string filename = "frame_" + std::to_string(frame_id++) + ".h264";
 
-  writeTobuffer(&data->frameBuffer, frame, width, height,
+  writeTobuffer(&data->rawFrameBuffer, frame, width, height,
                 data->format.info.raw.format);
 
+  data->encoder.encodeFrame(data->rawFrameBuffer, data->encodedFrameBuffer);
+
+  writeEncodedRGBBufferToDisk("frame.h264", data->encodedFrameBuffer);
 
   pw_stream_queue_buffer(data->pw.stream, b);
 }

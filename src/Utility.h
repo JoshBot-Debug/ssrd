@@ -98,3 +98,15 @@ static void writeRGBBufferToPPM(const std::string &filename,
   out.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
   out.close();
 }
+
+static void writeEncodedRGBBufferToDisk(const std::string &filename,
+                                        const std::vector<uint8_t> &buffer) {
+  std::ofstream out(filename, std::ios::binary | std::ios::app);
+  if (!out.is_open()) {
+    std::cerr << "Failed to open file " << filename << std::endl;
+    return;
+  }
+
+  out.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+  out.close();
+}

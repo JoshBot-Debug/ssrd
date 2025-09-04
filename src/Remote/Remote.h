@@ -1,9 +1,12 @@
 #pragma once
 
 #include <vector>
+
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
+
+#include "Encode.h"
 
 class Remote {
 private:
@@ -35,7 +38,9 @@ private:
     spa_video_info format{};
     spa_rectangle dimensions = SPA_RECTANGLE(1920, 1080);
 
-    std::vector<uint8_t> frameBuffer;
+    std::vector<uint8_t> rawFrameBuffer;
+    std::vector<uint8_t> encodedFrameBuffer;
+    Encode encoder;
   };
 
   struct PipewireSource {
