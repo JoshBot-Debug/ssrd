@@ -242,7 +242,7 @@ void Remote::onStreamProcess(void *userData) {
 
   data->encoder.encodeFrame(data->rawFrameBuffer, data->encodedFrameBuffer);
 
-  writeEncodedRGBBufferToDisk("frame.h264", data->encodedFrameBuffer);
+  writeEncodedRGBBufferToDisk("feed.h264", data->encodedFrameBuffer);
 
   pw_stream_queue_buffer(data->pw.stream, b);
 }
