@@ -141,8 +141,7 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
         SPA_POD_CHOICE_ENUM_Id(8, SPA_VIDEO_FORMAT_RGB, SPA_VIDEO_FORMAT_RGBA,
                                SPA_VIDEO_FORMAT_RGBx, SPA_VIDEO_FORMAT_BGR,
                                SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_BGRA,
-                               SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_I420),
-        SPA_FORMAT_VIDEO_size, SPA_POD_Rectangle(&data->dimensions)));
+                               SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_I420)));
 
     if (pw_stream_connect(data->pw.stream, PW_DIRECTION_INPUT, data->target_id,
                           (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
