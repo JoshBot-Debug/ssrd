@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 
+#include <spa/debug/types.h>
 #include <spa/param/video/type-info.h>
 
 #ifdef DEBUG

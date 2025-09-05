@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <functional>
 
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
@@ -40,6 +41,8 @@ private:
     std::vector<uint8_t> rawFrameBuffer;
     std::vector<uint8_t> encodedFrameBuffer;
     Encode encoder;
+
+    std::function<void(std::vector<uint8_t> buffer)> onStream;
   };
 
   struct PipewireSource {
@@ -65,6 +68,8 @@ private:
 public:
   Remote();
   ~Remote();
+
+  void onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
 
   void begin();
 };

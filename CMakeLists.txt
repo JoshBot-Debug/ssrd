@@ -22,16 +22,12 @@ else()
 endif()
 
 # === Source Files ===
-file(GLOB_RECURSE SRC_FILES
-  ${CMAKE_SOURCE_DIR}/src/*.cpp
-)
-add_executable(ssrd ${SRC_FILES})
+file(GLOB_RECURSE COMMON_SRC ${CMAKE_SOURCE_DIR}/common/*.cpp)
+file(GLOB_RECURSE CLIENT_SRC ${CMAKE_SOURCE_DIR}/client/*.cpp)
+file(GLOB_RECURSE SERVER_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
 
-# === Static/Shared Object Files ===
-file(GLOB_RECURSE SHARED_LIB ${CMAKE_SOURCE_DIR}/bin/*.o)
-file(GLOB_RECURSE STATIC_LIB ${CMAKE_SOURCE_DIR}/bin/*.a)
-target_sources(ssrd PRIVATE ${SHARED_LIB})
-target_link_libraries(ssrd PRIVATE ${STATIC_LIB})
+add_executable(ssrd-client ${CLIENT_SRC} ${COMMON_SRC})
+add_executable(ssrd-server ${SERVER_SRC} ${COMMON_SRC})
 
 # === OpenMP ===
 if(ENABLE_OPEN_MP)
@@ -50,14 +46,12 @@ endif()
 # === Libraries ===
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
-pkg_check_modules(TBB REQUIRED tbb)
 pkg_check_modules(PORTAL REQUIRED libportal)
 pkg_check_modules(PORTAL_GTK REQUIRED libportal-gtk4)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
 
-message(STATUS "TBB_LIBRARIES = ${TBB_LIBRARIES}")
 message(STATUS "PIPEWIRE_LIBRARIES = ${PIPEWIRE_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")
 message(STATUS "PORTAL_LIBRARIES = ${PORTAL_LIBRARIES}")
@@ -72,8 +66,25 @@ message(STATUS "SWSCALE_LIBRARIES = ${SWSCALE_LIBRARIES}")
 message(STATUS "SWSCALE_INCLUDE_DIRS = ${SWSCALE_INCLUDE_DIRS}")
 
 # === Libraries ===
-target_link_libraries(ssrd PRIVATE
-  ${TBB_LIBRARIES}
+# Common
+foreach(target ssrd-client ssrd-server)
+# === Common Include Directories ===
+target_include_directories(${target} PRIVATE 
+  ${CMAKE_SOURCE_DIR}/common
+  ${PIPEWIRE_INCLUDE_DIRS}
+)
+endforeach()
+
+# Client
+# target_link_libraries(ssrd-client PRIVATE)
+
+# === Include Directories ===
+target_include_directories(ssrd-client PRIVATE 
+  ${CMAKE_SOURCE_DIR}/client
+)
+
+# Server
+target_link_libraries(ssrd-server PRIVATE
   ${PIPEWIRE_LIBRARIES}
   ${PORTAL_LIBRARIES}
   ${PORTAL_GTK_LIBRARIES}
@@ -83,8 +94,8 @@ target_link_libraries(ssrd PRIVATE
 )
 
 # === Include Directories ===
-target_include_directories(ssrd PRIVATE 
-  ${CMAKE_SOURCE_DIR}/src
+target_include_directories(ssrd-server PRIVATE 
+  ${CMAKE_SOURCE_DIR}/server
   ${PIPEWIRE_INCLUDE_DIRS}
   ${PORTAL_INCLUDE_DIRS}
   ${PORTAL_GTK_INCLUDE_DIRS}

@@ -43,6 +43,11 @@ Remote::~Remote() {
   pw_deinit();
 }
 
+void Remote::onStream(
+    const std::function<void(std::vector<uint8_t> buffer)> &callback) {
+  m_Data.onStream = callback;
+}
+
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
@@ -238,7 +243,7 @@ void Remote::onStreamProcess(void *userData) {
 
   data->encoder.encodeFrame(data->rawFrameBuffer, data->encodedFrameBuffer);
 
-  writeEncodedRGBBufferToDisk("feed.h264", data->encodedFrameBuffer);
+  data->onStream(data->encodedFrameBuffer);
 
   pw_stream_queue_buffer(data->pw.stream, b);
 }
