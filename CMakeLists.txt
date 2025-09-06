@@ -51,6 +51,7 @@ pkg_check_modules(PORTAL_GTK REQUIRED libportal-gtk4)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
+pkg_check_modules(OPENSSL REQUIRED openssl)
 
 message(STATUS "PIPEWIRE_LIBRARIES = ${PIPEWIRE_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")
@@ -64,10 +65,16 @@ message(STATUS "AVUTIL_LIBRARIES = ${AVUTIL_LIBRARIES}")
 message(STATUS "AVUTIL_INCLUDE_DIRS = ${AVUTIL_INCLUDE_DIRS}")
 message(STATUS "SWSCALE_LIBRARIES = ${SWSCALE_LIBRARIES}")
 message(STATUS "SWSCALE_INCLUDE_DIRS = ${SWSCALE_INCLUDE_DIRS}")
+message(STATUS "OPENSSL_LIBRARIES = ${OPENSSL_LIBRARIES}")
 
 # === Libraries ===
 # Common
 foreach(target ssrd-client ssrd-server)
+# === Common Libraries ===
+target_link_libraries(${target} PRIVATE
+  ${OPENSSL_LIBRARIES}
+)
+
 # === Common Include Directories ===
 target_include_directories(${target} PRIVATE 
   ${CMAKE_SOURCE_DIR}/common

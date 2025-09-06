@@ -17,11 +17,11 @@ int main(int argc, char *argv[]) {
 
   Socket socket;
   socket.listen(1998);
-  
+
   std::string m = "Server here!";
   socket.message(m.c_str(), sizeof(m));
+
   socket.receive(1024, [](void *buffer, ssize_t size) {
-    std::cout << "Client says: "
-    << std::string(static_cast<char *>(buffer), size) << std::endl;
+    std::cout << "Client says: " << static_cast<char *>(buffer) << std::endl;
   });
 }

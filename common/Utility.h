@@ -7,6 +7,11 @@
 #include <spa/debug/types.h>
 #include <spa/param/video/type-info.h>
 
+#include <iostream>
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #ifdef DEBUG
 
 #include <iostream>
@@ -30,7 +35,7 @@ struct PixelFormatInfo {
   std::array<int, 3> order;
 };
 
-static inline PixelFormatInfo pixelFormatInfo(enum spa_video_format format) {
+static PixelFormatInfo pixelFormatInfo(enum spa_video_format format) {
   switch (format) {
   case SPA_VIDEO_FORMAT_RGB: // R G B
     return {3, {0, 1, 2}};
@@ -62,9 +67,8 @@ static inline PixelFormatInfo pixelFormatInfo(enum spa_video_format format) {
   }
 }
 
-static inline void writeTobuffer(std::vector<uint8_t> *buffer,
-                                 const uint8_t *frame, int width, int height,
-                                 spa_video_format format) {
+static void writeTobuffer(std::vector<uint8_t> *buffer, const uint8_t *frame,
+                          int width, int height, spa_video_format format) {
 
   PixelFormatInfo formatInfo = pixelFormatInfo(format);
   int stride = width * formatInfo.bytesPerPixel;
@@ -110,4 +114,29 @@ static void writeEncodedRGBBufferToDisk(const std::string &filename,
 
   out.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
   out.close();
+}
+
+static std::string getHomeDirectory() {
+  const char *home = std::getenv("HOME");
+  if (home)
+    return home;
+
+  struct passwd *pw = getpwuid(getuid());
+  return pw ? pw->pw_dir : "";
+}
+
+static std::vector<uint8_t> readFileBytes(const std::string &path) {
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  if (!file) {
+    throw std::runtime_error("Failed to open file: " + path);
+  }
+
+  std::streamsize size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  std::vector<uint8_t> buffer(size);
+  if (!file.read(reinterpret_cast<char *>(buffer.data()), size))
+    throw std::runtime_error("Failed to read file: " + path);
+
+  return buffer;
 }
