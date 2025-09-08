@@ -86,8 +86,8 @@ public:
     return signature;
   }
 
-  bool verify(EVP_PKEY *publicKey, const unsigned char *bytes, size_t size,
-              const unsigned char *signature, size_t signatureSize) {
+  bool verify(EVP_PKEY *publicKey, const void *bytes, size_t size,
+              const uint8_t *signature, size_t signatureSize) {
     if (!publicKey)
       return false;
 

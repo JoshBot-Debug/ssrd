@@ -24,17 +24,40 @@ int main(int argc, char *argv[]) {
   client.fromString(client.destination);
 
   Socket socket;
+  OpenSSL openssl;
+
   socket.connect(client);
 
-  std::string m = "Client here!";
-  socket.send(m.c_str(), sizeof(m));
-
   while (true) {
+    bool authenticated = false;
+
     std::vector<uint8_t> buffer = socket.read();
-    if(buffer.size())
-    {
-      std::string message(buffer.begin(), buffer.end());
-      std::cout << "Server says: " << message.c_str() << std::endl;
+    if (!buffer.size())
+      continue;
+
+    LOG("Received random bytes");
+
+    openssl.loadPrivateKey("/home/joshua/.ssrd/private.pem");
+    std::vector<uint8_t> signature = openssl.sign(buffer.data(), buffer.size());
+
+    LOG("Signed random bytes");
+
+    socket.send(signature.data(), signature.size());
+
+    LOG("Sent signature");
+
+    while (true) {
+      std::vector<uint8_t> buffer = socket.read();
+      if (!buffer.size())
+        continue;
+
+      authenticated = buffer[0];
+      break;
     }
+
+    if (authenticated)
+      break;
   }
+
+  LOG("Secure connection established");
 }

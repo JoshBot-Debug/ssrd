@@ -26,20 +26,44 @@ int main(int argc, char *argv[]) {
   // // remote.begin();
 
   Socket socket;
-  socket.listen(1998);
-
   OpenSSL openssl;
 
-  while (true) {
-    std::vector<uint8_t> buffer = socket.read();
-    if (buffer.size()) {
-      std::string message(buffer.begin(), buffer.end());
-      std::cout << "Client says: " << message.c_str() << std::endl;
+  bool authenticated = false;
 
-      std::string m = "Server here!";
-      socket.send(m.c_str(), sizeof(m));
+  while (true) {
+    socket.listen(1998);
+
+    std::vector<uint8_t> bytes = randomBytes(32);
+
+    while (true) {
+      socket.send(bytes.data(), bytes.size());
+
+      LOG("Sending random bytes");
+
+      std::vector<uint8_t> signature = socket.read();
+      if (signature.size()) {
+        LOG("Verifing signature");
+
+        EVP_PKEY *publicKey =
+            openssl.loadPublicKey("/home/joshua/.ssrd/public.pem");
+
+        authenticated = openssl.verify(
+            publicKey, bytes.data(), bytes.size(),
+            static_cast<const uint8_t *>(signature.data()), signature.size());
+
+        break;
+      }
     }
+
+    if (authenticated)
+      break;
+
+    socket.close(Socket::Close::CLIENT);
   }
+
+  socket.send(&authenticated, sizeof(authenticated));
+
+  LOG("Secure connection established");
 
   // OpenSSL openssl;
 
@@ -51,6 +75,8 @@ int main(int argc, char *argv[]) {
   // EVP_PKEY *publicKey =
   // openssl.loadPublicKey("/home/joshua/.ssrd/public.pem");
 
-  // openssl.verify(publicKey, bytes.data(), bytes.size(), signature.data(),
-  // signature.size());
+  // bool isVerified = openssl.verify(publicKey, bytes.data(), bytes.size(),
+  // signature.data(), signature.size());
+
+  // LOG(isVerified);
 }
