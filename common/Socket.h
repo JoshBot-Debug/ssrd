@@ -31,7 +31,7 @@ public:
 
   void listen(uint16_t port);
 
-  void connect(const Client &client, std::string &identity);
+  void connect(const Client &client);
 
   ssize_t send(int fd, const void *bytes, size_t size, int flags);
 

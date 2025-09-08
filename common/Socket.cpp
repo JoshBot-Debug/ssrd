@@ -55,12 +55,12 @@ void Socket::listen(uint16_t port) {
 
   // Accept connection
   m_Client = accept(m_Server, (struct sockaddr *)&m_ClientAddress, &len);
-  
+
   if (m_Client > 0)
     LOG("Establish a connection with client", m_Client);
 }
 
-void Socket::connect(const Client &client, std::string &identity) {
+void Socket::connect(const Client &client) {
   m_ServerAddress.sin_family = AF_INET;
   m_ServerAddress.sin_port = htons(client.port);
   inet_pton(AF_INET, client.ip.c_str(), &m_ServerAddress.sin_addr);

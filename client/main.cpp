@@ -21,12 +21,10 @@ int main(int argc, char *argv[]) {
 
   CLI11_PARSE(app, argc, argv);
 
-  LOG(identity);
-
   client.fromString(client.destination);
 
   Socket socket;
-  socket.connect(client, identity);
+  socket.connect(client);
 
   std::string m = "Client here!";
   socket.send(m.c_str(), sizeof(m));
