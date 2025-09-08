@@ -2,7 +2,7 @@
   "configurations": [
     {
       "name": "c++23",
-      "includePath": ["${workspaceFolder}/src/**"],
+      "includePath": [],
       "defines": [],
       "cStandard": "c23",
       "cppStandard": "c++23",

@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug GDB",
+      "name": "Debug Server",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/ssrd",
+      "program": "${workspaceFolder}/build/ssrd-server",
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "externalConsole": false,
@@ -17,11 +17,24 @@
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
         }
-      ],
-      "environment": [
+      ]
+    },
+    {
+      "name": "Debug Client",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/ssrd-client",
+      "args": ["joshua@10.60.1.41", "-i", "/home/joshua/.ssrd/public.pem"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "preLaunchTask": "Build Debug",
+      "MIMode": "gdb",
+      "setupCommands": [
         {
-          "name": "TCM_ENABLE",
-          "value": "1"
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
         }
       ]
     }

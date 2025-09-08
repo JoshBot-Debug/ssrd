@@ -11,23 +11,12 @@
 
 class OpenSSL {
 private:
-  EVP_PKEY *m_PublicKey = nullptr;
   EVP_PKEY *m_PrivateKey = nullptr;
 
 public:
   OpenSSL() { OpenSSL_add_all_algorithms(); };
 
-  ~OpenSSL() {
-    EVP_PKEY_free(m_PrivateKey);
-    EVP_PKEY_free(m_PublicKey);
-  };
-
-  bool validate() {
-    if (!m_PrivateKey || !m_PublicKey)
-      return false;
-
-    return EVP_PKEY_eq(m_PrivateKey, m_PublicKey) == 1;
-  }
+  ~OpenSSL() { EVP_PKEY_free(m_PrivateKey); };
 
   void loadPrivateKey(const char *filename) {
     FILE *fp = fopen(filename, "r");
@@ -43,34 +32,76 @@ public:
       throw std::runtime_error("Failed to load private key");
   }
 
-  void loadPublicKey(const char *filename) {
+  EVP_PKEY *loadPublicKey(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp)
       throw std::runtime_error("File not found: " + std::string(filename));
 
-    if (m_PublicKey)
-      EVP_PKEY_free(m_PublicKey);
-
-    m_PublicKey = PEM_read_PUBKEY(fp, nullptr, nullptr, nullptr);
+    EVP_PKEY *publicKey = PEM_read_PUBKEY(fp, nullptr, nullptr, nullptr);
     fclose(fp);
-    if (!m_PublicKey)
+    if (!publicKey)
       throw std::runtime_error("Failed to load public key");
+
+    return publicKey;
   }
 
-  void loadPublicKey(void *buffer, ssize_t size) {
-    BIO *bio = BIO_new_mem_buf(buffer, static_cast<int>(size));
+  std::vector<uint8_t> sign(void *bytes, size_t size) {
 
-    if (!bio)
-      throw std::runtime_error("Failed to create BIO from buffer");
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx)
+      throw std::runtime_error("Failed to create EVP_MD_CTX");
 
-    if (m_PublicKey)
-      EVP_PKEY_free(m_PublicKey);
+    std::vector<uint8_t> signature;
+    size_t sigLen = 0;
 
-    m_PublicKey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
-    
-    BIO_free(bio);
+    // Init sign context with SHA256
+    if (EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, m_PrivateKey) !=
+        1) {
+      EVP_MD_CTX_free(ctx);
+      throw std::runtime_error("DigestSignInit failed");
+    }
 
-    if (!m_PublicKey)
-      throw std::runtime_error("Failed to load public key");
+    // Add the data to be signed
+    if (EVP_DigestSignUpdate(ctx, bytes, size) != 1) {
+      EVP_MD_CTX_free(ctx);
+      throw std::runtime_error("DigestSignUpdate failed");
+    }
+
+    // First call with nullptr gets required signature length
+    if (EVP_DigestSignFinal(ctx, nullptr, &sigLen) != 1) {
+      EVP_MD_CTX_free(ctx);
+      throw std::runtime_error("DigestSignFinal (size query) failed");
+    }
+
+    signature.resize(sigLen);
+
+    // Second call actually writes the signature
+    if (EVP_DigestSignFinal(ctx, signature.data(), &sigLen) != 1) {
+      EVP_MD_CTX_free(ctx);
+      throw std::runtime_error("DigestSignFinal (sign) failed");
+    }
+
+    signature.resize(sigLen);
+    EVP_MD_CTX_free(ctx);
+    return signature;
+  }
+
+  bool verify(EVP_PKEY *publicKey, const unsigned char *bytes, size_t size,
+              const unsigned char *signature, size_t signatureSize) {
+    if (!publicKey)
+      return false;
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx)
+      return false;
+
+    bool ok = EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr,
+                                   publicKey) == 1 &&
+              EVP_DigestVerifyUpdate(ctx, bytes, size) == 1 &&
+              EVP_DigestVerifyFinal(ctx, signature, signatureSize) == 1;
+
+    EVP_MD_CTX_free(ctx);
+
+    return ok;
   }
 };

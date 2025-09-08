@@ -22,16 +22,21 @@ int main(int argc, char *argv[]) {
   CLI11_PARSE(app, argc, argv);
 
   LOG(identity);
-  
+
   client.fromString(client.destination);
 
   Socket socket;
   socket.connect(client, identity);
 
   std::string m = "Client here!";
-  socket.message(m.c_str(), m.size());
+  socket.send(m.c_str(), sizeof(m));
 
-  socket.receive(1024, [](void *buffer, ssize_t size) {
-    std::cout << "Server says: " << static_cast<char *>(buffer) << std::endl;
-  });
+  while (true) {
+    std::vector<uint8_t> buffer = socket.read();
+    if(buffer.size())
+    {
+      std::string message(buffer.begin(), buffer.end());
+      std::cout << "Server says: " << message.c_str() << std::endl;
+    }
+  }
 }

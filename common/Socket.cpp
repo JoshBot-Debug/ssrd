@@ -31,9 +31,6 @@ Socket::~Socket() {
 }
 
 void Socket::listen(uint16_t port) {
-  m_IsListening = true;
-  m_ListeningPort = port;
-
   if (!isSocketBound(m_Server)) {
     // Bind socket to IP/Port
     m_ServerAddress.sin_family = AF_INET;
@@ -54,40 +51,13 @@ void Socket::listen(uint16_t port) {
 
   LOG("Listening on port", port);
 
-  OpenSSL openssl;
-  openssl.loadPrivateKey((HOME_DIR + "/.ssrd/private.pem").c_str());
+  socklen_t len = sizeof(m_ClientAddress);
 
-  while (true) {
-    // Accept connection
-    m_Client = accept(m_Server, (struct sockaddr *)&m_ClientAddress,
-                      &m_ClientAddressLength);
-
-    if (m_Client < 0) {
-      LOG("Failed to accept an incomming connection");
-      continue;
-    }
-
-    char buffer[1024] = {0};
-    memset(buffer, 0, sizeof(buffer));
-    ssize_t size = read(m_Client, buffer, sizeof(buffer));
-
-    if (size > 0) {
-      try {
-        openssl.loadPublicKey(buffer, size);
-        if (openssl.validate()) {
-          LOG("Secure connection established");
-          break;
-        }
-      } catch (const std::runtime_error &e) {
-        LOG(e.what());
-      }
-    }
-
-    ::close(m_Client);
-    m_Client = -1;
-
-    LOG("Failed to establish a secure connection");
-  }
+  // Accept connection
+  m_Client = accept(m_Server, (struct sockaddr *)&m_ClientAddress, &len);
+  
+  if (m_Client > 0)
+    LOG("Establish a connection with client", m_Client);
 }
 
 void Socket::connect(const Client &client, std::string &identity) {
@@ -104,58 +74,93 @@ void Socket::connect(const Client &client, std::string &identity) {
     throw std::runtime_error("Connection failed");
   }
 
-  std::vector<uint8_t> bytes;
-
-  try {
-    if (identity.length() == 0)
-      identity = HOME_DIR + "/.ssrd/public.pem";
-    bytes = readFileBytes(identity);
-  } catch (const std::runtime_error &e) {
-  }
-
-  message(bytes.data(), bytes.size());
-
   LOG("Connection established with server", m_Server);
 }
 
-void Socket::message(const void *buffer, size_t size) {
-  send(getSocketID(), buffer, size, 0);
-}
+ssize_t Socket::send(int fd, const void *bytes, size_t size, int flags) {
+  ssize_t total = 0;
 
-void Socket::receive(uint32_t size,
-                     const std::function<void(void *, ssize_t)> &callback) {
-
-  int socket = getSocketID();
-
-  if (socket < 0)
-    return;
-
-  m_ReceiverThread = std::thread([size, socket, callback]() {
-    char buffer[size] = {0};
-    while (true) {
-      memset(buffer, 0, sizeof(buffer));
-      ssize_t n = read(socket, buffer, sizeof(buffer));
-      if (n > 0)
-        callback(buffer, n);
-    }
-  });
-
-  m_ReceiverThread.join();
-}
-
-void Socket::close() {
-  if (!m_IsListening) {
-    if (m_Server > -1)
-      ::close(m_Server);
-
-    m_Server = -1;
-    return;
+  while (total < size) {
+    ssize_t sent = ::send(fd, static_cast<const uint8_t *>(bytes) + total,
+                          size - total, 0);
+    if (sent <= 0)
+      return total;
+    total += sent;
   }
 
-  if (m_Client > -1)
+  return total;
+}
+
+ssize_t Socket::read(int fd, void *bytes, size_t size) {
+  ssize_t total = 0;
+
+  while (total < size) {
+    ssize_t received =
+        ::read(fd, static_cast<uint8_t *>(bytes) + total, size - total);
+
+    if (received <= 0)
+      return total;
+
+    total += received;
+  }
+
+  return total;
+}
+
+void Socket::send(const void *bytes, size_t size) {
+  int fd = getSocketID();
+
+  uint32_t pSize = htonl(static_cast<uint32_t>(size));
+
+  // Send the size
+  if (send(fd, &pSize, sizeof(pSize), 0) < sizeof(pSize))
+    throw std::runtime_error("Failed to send size bytes");
+
+  // Send the buffer
+  if (send(fd, bytes, size, 0) < size)
+    throw std::runtime_error("Failed to send bytes");
+}
+
+std::vector<uint8_t> Socket::read() {
+  int fd = getSocketID();
+
+  std::vector<uint8_t> buffer(0);
+
+  // Read the first 4-byte
+  uint32_t sBuffer = 0;
+
+  ssize_t received = read(fd, &sBuffer, sizeof(sBuffer));
+
+  if (received == 0)
+    return buffer;
+
+  if (received < sizeof(sBuffer))
+    throw std::runtime_error("Failed to read size bytes");
+
+  uint32_t size = ntohl(sBuffer);
+
+  buffer.resize(size);
+
+  // Read the payload
+  if (read(fd, buffer.data(), size) < size)
+    throw std::runtime_error("Failed to read bytes");
+
+  return buffer;
+}
+
+void Socket::close(Close type) {
+  switch (type) {
+  case Close::CLIENT:
     ::close(m_Client);
+    m_Client = -1;
+    break;
 
-  m_Client = -1;
+  case Close::SERVER:
+    ::close(m_Server);
+    m_Server = -1;
+    break;
 
-  listen(m_ListeningPort);
+  default:
+    break;
+  }
 }
