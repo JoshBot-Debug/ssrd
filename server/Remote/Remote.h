@@ -52,8 +52,10 @@ private:
 
 private:
   static void onSessionClosed(GObject *sourceObject, gpointer userData);
+
   static void onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
                                    gpointer userData);
+                                   
   static void onSessionStart(GObject *source_object, GAsyncResult *res,
                              gpointer userData);
 
