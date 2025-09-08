@@ -3,10 +3,22 @@
 #include <iostream>
 
 Encode::~Encode() {
-  sws_freeContext(m_Sws_ctx);
-  av_frame_free(&m_FrameRGB);
-  av_frame_free(&m_FrameYUV);
-  avcodec_free_context(&m_Ctx);
+  if (m_Sws_ctx) {
+    sws_freeContext(m_Sws_ctx);
+    m_Sws_ctx = nullptr;
+  }
+  if (m_FrameRGB) {
+    av_frame_free(&m_FrameRGB);
+    m_FrameRGB = nullptr;
+  }
+  if (m_FrameYUV) {
+    av_frame_free(&m_FrameYUV);
+    m_FrameYUV = nullptr;
+  }
+  if (m_Ctx) {
+    avcodec_free_context(&m_Ctx);
+    m_Ctx = nullptr;
+  }
 }
 
 void Encode::initialize(int width, int height) {
@@ -70,7 +82,7 @@ void Encode::initialize(int width, int height) {
 void Encode::encodeFrame(const std::vector<uint8_t> &buffer,
                          std::vector<uint8_t> &output) {
   output.clear();
-  
+
   if (buffer.size() < static_cast<size_t>(m_Width * m_Height * 3))
     throw std::runtime_error("Input buffer too small for frame dimensions");
 

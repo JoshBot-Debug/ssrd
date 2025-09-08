@@ -1,7 +1,7 @@
 #pragma once
 
-#include <arpa/inet.h>
 #include "Utility.h"
+#include <arpa/inet.h>
 
 class Socket {
 
@@ -34,9 +34,9 @@ public:
 
   ssize_t read(int fd, void *bytes, size_t size);
 
-  void send(const void *bytes, size_t size);
+  ssize_t send(const void *bytes, size_t size);
 
-  std::vector<uint8_t> read();
+  ssize_t read(std::vector<uint8_t> &buffer);
 
   void close(Close type);
 };

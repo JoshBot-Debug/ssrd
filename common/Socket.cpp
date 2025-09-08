@@ -81,6 +81,9 @@ ssize_t Socket::send(int fd, const void *bytes, size_t size, int flags) {
   while (total < size) {
     ssize_t sent = ::send(fd, static_cast<const uint8_t *>(bytes) + total,
                           size - total, 0);
+    if (sent == -1)
+      return -1;
+
     if (sent <= 0)
       return total;
     total += sent;
@@ -96,6 +99,9 @@ ssize_t Socket::read(int fd, void *bytes, size_t size) {
     ssize_t received =
         ::read(fd, static_cast<uint8_t *>(bytes) + total, size - total);
 
+    if (received == -1)
+      return -1;
+
     if (received <= 0)
       return total;
 
@@ -105,32 +111,44 @@ ssize_t Socket::read(int fd, void *bytes, size_t size) {
   return total;
 }
 
-void Socket::send(const void *bytes, size_t size) {
+ssize_t Socket::send(const void *bytes, size_t size) {
   int fd = getSocketID();
 
   uint32_t pSize = htonl(static_cast<uint32_t>(size));
 
   // Send the size
-  if (send(fd, &pSize, sizeof(pSize), 0) < sizeof(pSize))
+  ssize_t sent = send(fd, &pSize, sizeof(pSize), 0);
+
+  if (sent <= 0)
+    return sent;
+
+  if (sent < sizeof(pSize))
     throw std::runtime_error("Failed to send size bytes");
 
+  sent = send(fd, bytes, size, 0);
+
+  if (sent <= 0)
+    return sent;
+
   // Send the buffer
-  if (send(fd, bytes, size, 0) < size)
+  if (sent < size)
     throw std::runtime_error("Failed to send bytes");
+
+  return sent;
 }
 
-std::vector<uint8_t> Socket::read() {
+ssize_t Socket::read(std::vector<uint8_t> &buffer) {
+  buffer.clear();
+
   int fd = getSocketID();
 
-  std::vector<uint8_t> buffer(0);
-
-  // Read the first 4-byte
   uint32_t sBuffer = 0;
 
+  // Read the first 4-byte
   ssize_t received = read(fd, &sBuffer, sizeof(sBuffer));
 
-  if (received == 0)
-    return buffer;
+  if (received <= 0)
+    return received;
 
   if (received < sizeof(sBuffer))
     throw std::runtime_error("Failed to read size bytes");
@@ -140,10 +158,15 @@ std::vector<uint8_t> Socket::read() {
   buffer.resize(size);
 
   // Read the payload
-  if (read(fd, buffer.data(), size) < size)
+  received = read(fd, buffer.data(), size);
+
+  if (received <= 0)
+    return received;
+
+  if (received < size)
     throw std::runtime_error("Failed to read bytes");
 
-  return buffer;
+  return received;
 }
 
 void Socket::close(Close type) {

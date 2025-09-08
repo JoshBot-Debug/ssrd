@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <functional>
+#include <vector>
 
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
@@ -38,11 +38,11 @@ private:
 
     spa_video_info format{};
 
-    std::vector<uint8_t> rawFrameBuffer;
-    std::vector<uint8_t> encodedFrameBuffer;
     Encode encoder;
+    std::vector<uint8_t> rawFrameBuffer = {};
+    std::vector<uint8_t> encodedFrameBuffer = {};
 
-    std::function<void(std::vector<uint8_t> buffer)> onStream;
+    std::function<void(std::vector<uint8_t> buffer)> onStream = nullptr;
   };
 
   struct PipewireSource {
@@ -69,7 +69,10 @@ public:
   Remote();
   ~Remote();
 
-  void onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
+  void
+  onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
 
   void begin();
+  
+  void end();
 };

@@ -31,7 +31,11 @@ int main(int argc, char *argv[]) {
   while (true) {
     bool authenticated = false;
 
-    std::vector<uint8_t> buffer = socket.read();
+    std::vector<uint8_t> buffer = {};
+
+    if (socket.read(buffer) == -1)
+      break;
+
     if (!buffer.size())
       continue;
 
@@ -47,7 +51,11 @@ int main(int argc, char *argv[]) {
     LOG("Sent signature");
 
     while (true) {
-      std::vector<uint8_t> buffer = socket.read();
+      std::vector<uint8_t> buffer = {};
+
+      if (socket.read(buffer) == -1)
+        break;
+
       if (!buffer.size())
         continue;
 
@@ -60,4 +68,13 @@ int main(int argc, char *argv[]) {
   }
 
   LOG("Secure connection established");
+
+  while (true) {
+    std::vector<uint8_t> buffer = {};
+
+    if (socket.read(buffer) <= 0)
+      break;
+
+    writeEncodedRGBBufferToDisk("feed.h264", buffer);
+  }
 }

@@ -5,20 +5,20 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
 #include <libavutil/opt.h>
+#include <libswscale/swscale.h>
 }
 
 class Encode {
 private:
-  int m_Width, m_Height;
+  int m_Width = 0, m_Height = 0;
 
-  uint64_t m_Pts;
+  uint64_t m_Pts = 0;
 
-  AVCodecContext *m_Ctx;
-  AVFrame *m_FrameRGB;
-  AVFrame *m_FrameYUV;
-  SwsContext *m_Sws_ctx;
+  AVCodecContext *m_Ctx = nullptr;
+  AVFrame *m_FrameRGB = nullptr;
+  AVFrame *m_FrameYUV = nullptr;
+  SwsContext *m_Sws_ctx = nullptr;
 
 public:
   Encode() = default;

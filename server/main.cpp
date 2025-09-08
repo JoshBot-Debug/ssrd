@@ -6,6 +6,7 @@
 #include "Utility.h"
 
 #include <openssl/rand.h>
+#include <signal.h>
 
 std::vector<uint8_t> randomBytes(size_t length) {
   std::vector<uint8_t> buffer(length);
@@ -15,15 +16,7 @@ std::vector<uint8_t> randomBytes(size_t length) {
 }
 
 int main(int argc, char *argv[]) {
-  // LOG("ssrd-server");
-
-  // // Remote remote;
-
-  // // remote.onStream([](std::vector<uint8_t> buffer) {
-  // //   writeEncodedRGBBufferToDisk("feed.h264", buffer);
-  // // });
-
-  // // remote.begin();
+  signal(SIGPIPE, SIG_IGN);
 
   Socket socket;
   OpenSSL openssl;
@@ -33,14 +26,19 @@ int main(int argc, char *argv[]) {
   while (true) {
     socket.listen(1998);
 
-    std::vector<uint8_t> bytes = randomBytes(32);
+    std::vector<uint8_t> bytes = randomBytes(256);
 
     while (true) {
-      socket.send(bytes.data(), bytes.size());
+      if (socket.send(bytes.data(), bytes.size()) <= 0)
+        break;
 
       LOG("Sending random bytes");
 
-      std::vector<uint8_t> signature = socket.read();
+      std::vector<uint8_t> signature = {};
+
+      if (socket.read(signature) == -1)
+        break;
+
       if (signature.size()) {
         LOG("Verifing signature");
 
@@ -55,28 +53,27 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    if (authenticated)
-      break;
+    if (!authenticated) {
+      socket.close(Socket::Close::CLIENT);
+      continue;
+    }
 
-    socket.close(Socket::Close::CLIENT);
+    if (socket.send(&authenticated, sizeof(authenticated)) > 0) {
+      LOG("Secure connection established");
+
+      Remote remote;
+
+      remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
+        if (socket.send(buffer.data(), buffer.size()) == -1)
+          remote.end();
+      });
+
+      LOG("Remote desktop begin");
+
+      remote.begin();
+
+      socket.close(Socket::Close::CLIENT);
+      LOG("Remote desktop end");
+    }
   }
-
-  socket.send(&authenticated, sizeof(authenticated));
-
-  LOG("Secure connection established");
-
-  // OpenSSL openssl;
-
-  // std::vector<uint8_t> bytes = randomBytes(32);
-
-  // openssl.loadPrivateKey("/home/joshua/.ssrd/private.pem");
-  // std::vector<uint8_t> signature = openssl.sign(bytes.data(), bytes.size());
-
-  // EVP_PKEY *publicKey =
-  // openssl.loadPublicKey("/home/joshua/.ssrd/public.pem");
-
-  // bool isVerified = openssl.verify(publicKey, bytes.data(), bytes.size(),
-  // signature.data(), signature.size());
-
-  // LOG(isVerified);
 }

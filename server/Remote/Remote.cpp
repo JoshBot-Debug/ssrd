@@ -34,12 +34,49 @@ Remote::Remote() {
 }
 
 Remote::~Remote() {
-  if (m_Data.pw.core)
-    pw_core_disconnect(m_Data.pw.core);
+  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop)) {
+    g_main_loop_quit(m_Data.g.loop);
+    m_Data.g.loop = nullptr;
+  }
 
-  pw_context_destroy(m_Data.pw.context);
-  pw_loop_destroy(m_Data.pw.loop);
-  g_main_loop_unref(m_Data.g.loop);
+  if (m_Data.pw.stream) {
+    pw_stream_destroy(m_Data.pw.stream);
+    m_Data.pw.stream = nullptr;
+  }
+
+  if (m_Data.pw.core) {
+    pw_core_disconnect(m_Data.pw.core);
+    m_Data.pw.core = nullptr;
+  }
+
+  if (m_Data.pw.context) {
+    pw_context_destroy(m_Data.pw.context);
+    m_Data.pw.context = nullptr;
+  }
+
+  if (m_Data.pw.loop) {
+    pw_loop_destroy(m_Data.pw.loop);
+    m_Data.pw.loop = nullptr;
+  }
+
+  if (m_Data.g.session) {
+    if (m_Data.g.sessionClosedHandle)
+      g_signal_handler_disconnect(m_Data.g.session,
+                                  m_Data.g.sessionClosedHandle);
+    g_object_unref(m_Data.g.session);
+    m_Data.g.session = nullptr;
+  }
+
+  if (m_Data.g.portal) {
+    g_object_unref(m_Data.g.portal);
+    m_Data.g.portal = nullptr;
+  }
+
+  if (m_Data.g.loop) {
+    g_main_loop_unref(m_Data.g.loop);
+    m_Data.g.loop = nullptr;
+  }
+
   pw_deinit();
 }
 
@@ -51,8 +88,10 @@ void Remote::onStream(
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
-  if (data && data->g.loop)
+  if (data && data->g.loop && g_main_loop_is_running(data->g.loop)) {
     g_main_loop_quit(data->g.loop);
+    data->g.loop = nullptr;
+  }
 
   LOG("Session closed");
 }
@@ -86,7 +125,12 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
     if (error)
       g_error_free(error);
 
-    return exit(EXIT_FAILURE);
+    if (data->g.loop && g_main_loop_is_running(data->g.loop)) {
+      g_main_loop_quit(data->g.loop);
+      data->g.loop = nullptr;
+    }
+
+    return;
   }
 
   // Get the target stream id
@@ -106,9 +150,6 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
 
   // Get pipewire discriptor
   data->pw_fd = xdp_session_open_pipewire_remote(data->g.session);
-
-  LOG("pipewire discriptor", data->pw_fd);
-  LOG("pipewire target id", data->target_id);
 
   // Setup pipewire
   {
@@ -220,6 +261,9 @@ void Remote::onStreamParamsChange(void *userData, uint32_t id,
 void Remote::onStreamProcess(void *userData) {
   auto *data = static_cast<Data *>(userData);
 
+  if (!data->onStream)
+    return;
+
   pw_buffer *b = pw_stream_dequeue_buffer(data->pw.stream);
 
   if (!b)
@@ -257,6 +301,11 @@ void Remote::begin() {
 
   // xdp_session_keyboard_key
   // xdp_session_pointer_position
-  
+
   g_main_loop_run(m_Data.g.loop);
+}
+
+void Remote::end() {
+  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
+    g_main_loop_quit(m_Data.g.loop);
 }
