@@ -29,8 +29,7 @@ public:
 
   void listen(uint16_t port);
 
-  void connect(const Client &client,
-               const std::string &identity = HOME_DIR + "/.ssrd/id_rsa.pub");
+  void connect(const Client &client, std::string &identity);
 
   void message(const void *buffer, size_t size);
 

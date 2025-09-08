@@ -23,31 +23,20 @@ public:
   };
 
   bool validate() {
-
     if (!m_PrivateKey || !m_PublicKey)
       return false;
 
-    // Make sure both are RSA
-    if (EVP_PKEY_base_id(m_PrivateKey) != EVP_PKEY_RSA ||
-        EVP_PKEY_base_id(m_PublicKey) != EVP_PKEY_RSA) {
-      return false;
-    }
-
-    // Extract the public key from the private key
-    EVP_PKEY *pubFromPriv = EVP_PKEY_new();
-    EVP_PKEY_copy_parameters(pubFromPriv, m_PrivateKey);
-
-    // Compare the two public keys
-    bool match = (EVP_PKEY_eq(m_PrivateKey, m_PublicKey) == 1);
-
-    EVP_PKEY_free(pubFromPriv);
-    return match;
+    return EVP_PKEY_eq(m_PrivateKey, m_PublicKey) == 1;
   }
 
   void loadPrivateKey(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp)
       throw std::runtime_error("File not found: " + std::string(filename));
+
+    if (m_PrivateKey)
+      EVP_PKEY_free(m_PrivateKey);
+
     m_PrivateKey = PEM_read_PrivateKey(fp, nullptr, nullptr, nullptr);
     fclose(fp);
     if (!m_PrivateKey)
@@ -58,6 +47,10 @@ public:
     FILE *fp = fopen(filename, "r");
     if (!fp)
       throw std::runtime_error("File not found: " + std::string(filename));
+
+    if (m_PublicKey)
+      EVP_PKEY_free(m_PublicKey);
+
     m_PublicKey = PEM_read_PUBKEY(fp, nullptr, nullptr, nullptr);
     fclose(fp);
     if (!m_PublicKey)
@@ -70,7 +63,11 @@ public:
     if (!bio)
       throw std::runtime_error("Failed to create BIO from buffer");
 
+    if (m_PublicKey)
+      EVP_PKEY_free(m_PublicKey);
+
     m_PublicKey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+    
     BIO_free(bio);
 
     if (!m_PublicKey)

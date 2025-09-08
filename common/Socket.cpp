@@ -55,7 +55,7 @@ void Socket::listen(uint16_t port) {
   LOG("Listening on port", port);
 
   OpenSSL openssl;
-  openssl.loadPrivateKey((HOME_DIR + "/.ssrd/id_rsa").c_str());
+  openssl.loadPrivateKey((HOME_DIR + "/.ssrd/private.pem").c_str());
 
   while (true) {
     // Accept connection
@@ -90,7 +90,7 @@ void Socket::listen(uint16_t port) {
   }
 }
 
-void Socket::connect(const Client &client, const std::string &identity) {
+void Socket::connect(const Client &client, std::string &identity) {
   m_ServerAddress.sin_family = AF_INET;
   m_ServerAddress.sin_port = htons(client.port);
   inet_pton(AF_INET, client.ip.c_str(), &m_ServerAddress.sin_addr);
@@ -107,6 +107,8 @@ void Socket::connect(const Client &client, const std::string &identity) {
   std::vector<uint8_t> bytes;
 
   try {
+    if (identity.length() == 0)
+      identity = HOME_DIR + "/.ssrd/public.pem";
     bytes = readFileBytes(identity);
   } catch (const std::runtime_error &e) {
   }

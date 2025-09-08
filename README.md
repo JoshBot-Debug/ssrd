@@ -1,7 +1,12 @@
-For your remote desktop app, supporting these is enough:
+# SSRD
 
-Must: BGRx, RGBx, RGBA, BGRA
+A secure socket remote desktop
 
-Nice-to-have: RGB, BGR
+## Generate the private & public openssl keys
 
-Optional (if targeting GPU encoder directly): NV12, I420
+Generate the private key, then extract the public key.
+
+```bash
+openssl genpkey -algorithm RSA -out private.pem
+openssl rsa -in private.pem -pubout -out public.pem
+```

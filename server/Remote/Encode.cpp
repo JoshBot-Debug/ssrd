@@ -42,7 +42,7 @@ void Encode::initialize(int width, int height) {
     throw std::runtime_error("Failed to get swscale context");
 
   //  Hardware encode, need to add cpu fallback
-  AVCodec *codec = avcodec_find_encoder_by_name("libx264");
+  const AVCodec *codec = avcodec_find_encoder_by_name("libx264");
   if (!codec)
     throw std::runtime_error("Failed to find x264 encoder");
 
