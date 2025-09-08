@@ -255,5 +255,8 @@ void Remote::begin() {
       XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
       XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
 
+  // xdp_session_keyboard_key
+  // xdp_session_pointer_position
+  
   g_main_loop_run(m_Data.g.loop);
 }
