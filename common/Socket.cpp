@@ -5,8 +5,6 @@
 #include <thread>
 #include <unistd.h>
 
-#include "OpenSSL.h"
-
 bool Socket::isSocketBound(int socket) {
   struct sockaddr_in address;
   socklen_t len = sizeof(address);
@@ -60,12 +58,12 @@ void Socket::listen(uint16_t port) {
     LOG("Establish a connection with client", m_Client);
 }
 
-void Socket::connect(const Client &client) {
+void Socket::connect(const char *username, const char *ip, uint16_t port) {
   m_ServerAddress.sin_family = AF_INET;
-  m_ServerAddress.sin_port = htons(client.port);
-  inet_pton(AF_INET, client.ip.c_str(), &m_ServerAddress.sin_addr);
+  m_ServerAddress.sin_port = htons(port);
+  inet_pton(AF_INET, ip, &m_ServerAddress.sin_addr);
 
-  LOG("Connecting to", client.username, client.ip, client.port);
+  LOG("Connecting to", username, ip, port);
 
   // Connect to server
   if (::connect(m_Server, (struct sockaddr *)&m_ServerAddress,

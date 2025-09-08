@@ -1,9 +1,6 @@
 #pragma once
 
 #include <arpa/inet.h>
-#include <functional>
-
-#include "Client.h"
 #include "Utility.h"
 
 class Socket {
@@ -31,7 +28,7 @@ public:
 
   void listen(uint16_t port);
 
-  void connect(const Client &client);
+  void connect(const char *username, const char *ip, uint16_t port);
 
   ssize_t send(int fd, const void *bytes, size_t size, int flags);
 

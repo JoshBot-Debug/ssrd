@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
   CLI::App app{"Secure Shell Remote Desktop"};
 
   Client client;
-  std::string identity;
+  std::string identity = "/home/joshua/.ssrd/private.pem";
 
   app.add_option("destination", client.destination,
                  "The destination server eg. <username>@<ip-address>[:<port>]")
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   Socket socket;
   OpenSSL openssl;
 
-  socket.connect(client);
+  socket.connect(client.username.c_str(), client.ip.c_str(), client.port);
 
   while (true) {
     bool authenticated = false;
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
     LOG("Received random bytes");
 
-    openssl.loadPrivateKey("/home/joshua/.ssrd/private.pem");
+    openssl.loadPrivateKey(identity.c_str());
     std::vector<uint8_t> signature = openssl.sign(buffer.data(), buffer.size());
 
     LOG("Signed random bytes");
