@@ -8,7 +8,7 @@
 #include <openssl/rand.h>
 #include <signal.h>
 
-#include "Protocol.h"
+#include "Payload.h"
 
 std::vector<uint8_t> randomBytes(size_t length) {
   std::vector<uint8_t> buffer(length);
@@ -19,6 +19,22 @@ std::vector<uint8_t> randomBytes(size_t length) {
 
 int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN);
+
+
+  Payload payload;
+
+  payload.set("resize");
+  payload.set("w");
+  payload.set(1920);
+  payload.set("h");
+  payload.set(1080);
+  
+  // payload.buffer
+
+  std::string a = "a";
+  std::cout << sizeof(a) << std::endl;
+
+  return 1;
 
   Socket socket;
   OpenSSL openssl;
@@ -65,10 +81,9 @@ int main(int argc, char *argv[]) {
 
       Remote remote;
 
-      // remote.onResize([&socket](int width, int height) {
-      //   Payload payload{PayloadType::GENERAL};
-      //   payload.buffer.resize(sizeof(width) + sizeof(height));
-      // });
+      remote.onResize([&socket](int width, int height) {
+        // TODO send buffer
+      });
 
       remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
         if (socket.send(buffer.data(), buffer.size()) == -1)
