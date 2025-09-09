@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
   // payload.set("h");
   // payload.set(1080);
 
-  auto result = Payload::get<char *>(0, payload.buffer);
+  auto result = Payload::get<const char *>(0, payload.buffer);
   std::cout << "Result: " << result << std::endl;
 
   return 1;
