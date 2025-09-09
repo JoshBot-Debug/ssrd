@@ -7,8 +7,6 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
 
-#include "Encode.h"
-
 class Remote {
 private:
   struct PwData {
@@ -38,10 +36,8 @@ private:
 
     spa_video_info format{};
 
-    Encode encoder;
-    std::vector<uint8_t> rawFrameBuffer = {};
-    std::vector<uint8_t> encodedFrameBuffer = {};
-
+    std::vector<uint8_t> framebuffer = {};
+    std::function<void(int width, int height)> onResize = nullptr;
     std::function<void(std::vector<uint8_t> buffer)> onStream = nullptr;
   };
 
@@ -55,7 +51,7 @@ private:
 
   static void onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
                                    gpointer userData);
-                                   
+
   static void onSessionStart(GObject *source_object, GAsyncResult *res,
                              gpointer userData);
 
@@ -74,7 +70,9 @@ public:
   void
   onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
 
+  void onResize(const std::function<void(int width, int height)> &callback);
+
   void begin();
-  
+
   void end();
 };

@@ -58,12 +58,14 @@ void Socket::listen(uint16_t port) {
     LOG("Establish a connection with client", m_Client);
 }
 
-void Socket::connect(const char *username, const char *ip, uint16_t port) {
+void Socket::connect(const char *ip, uint16_t port) {
   m_ServerAddress.sin_family = AF_INET;
   m_ServerAddress.sin_port = htons(port);
-  inet_pton(AF_INET, ip, &m_ServerAddress.sin_addr);
 
-  LOG("Connecting to", username, ip, port);
+  if (!inet_pton(AF_INET, ip, &m_ServerAddress.sin_addr))
+    throw std::runtime_error("Invalid ip address");
+
+  LOG("Connecting to", ip, port);
 
   // Connect to server
   if (::connect(m_Server, (struct sockaddr *)&m_ServerAddress,

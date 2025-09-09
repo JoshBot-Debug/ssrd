@@ -21,6 +21,20 @@ private:
   int getSocketID() { return m_Client > -1 ? m_Client : m_Server; };
 
   bool isSocketBound(int socket);
+  
+  bool isValidPort(const std::string &portStr, uint16_t &portOut) {
+    if (portStr.empty())
+      return false;
+    for (char c : portStr)
+      if (!isdigit(c))
+        return false;
+    long val = std::stol(portStr);
+    if (val < 1 || val > 65535)
+      return false;
+    portOut = static_cast<uint16_t>(val);
+    return true;
+  }
+
 
 public:
   Socket();
@@ -28,7 +42,7 @@ public:
 
   void listen(uint16_t port);
 
-  void connect(const char *username, const char *ip, uint16_t port);
+  void connect(const char *ip, uint16_t port);
 
   ssize_t send(int fd, const void *bytes, size_t size, int flags);
 

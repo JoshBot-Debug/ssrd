@@ -85,6 +85,11 @@ void Remote::onStream(
   m_Data.onStream = callback;
 }
 
+void Remote::onResize(
+    const std::function<void(int width, int height)> &callback) {
+  m_Data.onResize = callback;
+}
+
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
@@ -254,8 +259,9 @@ void Remote::onStreamParamsChange(void *userData, uint32_t id,
       data->format.info.raw.framerate.denom);
 
   // Resize the framebuffer to fit the image size
-  data->rawFrameBuffer.resize((width * height) * 3);
-  data->encoder.initialize(width, height);
+  data->framebuffer.resize((width * height) * 3);
+  if (data->onResize)
+    data->onResize(width, height);
 }
 
 void Remote::onStreamProcess(void *userData) {
@@ -282,12 +288,10 @@ void Remote::onStreamProcess(void *userData) {
   int width = data->format.info.raw.size.width;
   int height = data->format.info.raw.size.height;
 
-  writeTobuffer(&data->rawFrameBuffer, frame, width, height,
+  writeTobuffer(&data->framebuffer, frame, width, height,
                 data->format.info.raw.format);
 
-  data->encoder.encodeFrame(data->rawFrameBuffer, data->encodedFrameBuffer);
-
-  data->onStream(data->encodedFrameBuffer);
+  data->onStream(data->framebuffer);
 
   pw_stream_queue_buffer(data->pw.stream, b);
 }

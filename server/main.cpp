@@ -8,6 +8,8 @@
 #include <openssl/rand.h>
 #include <signal.h>
 
+#include "Protocol.h"
+
 std::vector<uint8_t> randomBytes(size_t length) {
   std::vector<uint8_t> buffer(length);
   if (RAND_bytes(buffer.data(), static_cast<int>(length)) != 1)
@@ -62,6 +64,11 @@ int main(int argc, char *argv[]) {
       LOG("Secure connection established");
 
       Remote remote;
+
+      // remote.onResize([&socket](int width, int height) {
+      //   Payload payload{PayloadType::GENERAL};
+      //   payload.buffer.resize(sizeof(width) + sizeof(height));
+      // });
 
       remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
         if (socket.send(buffer.data(), buffer.size()) == -1)

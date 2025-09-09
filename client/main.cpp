@@ -1,5 +1,4 @@
 #include "CLI11.h"
-#include "Client.h"
 #include "Constant.h"
 #include "OpenSSL.h"
 #include "Socket.h"
@@ -9,24 +8,27 @@ int main(int argc, char *argv[]) {
   LOG("ssrd-client");
 
   CLI::App app{"Secure Shell Remote Desktop"};
+  app.set_help_flag("--help", "Display help information.");
 
-  Client client;
   std::string identity = "/home/joshua/.ssrd/private.pem";
 
-  app.add_option("destination", client.destination,
-                 "The destination server eg. <username>@<ip-address>[:<port>]")
+  std::string ip;
+  uint16_t port = 1998;
+
+  app.add_option("-h,--host", ip,
+                 "The IP address of the destination server eg. 127.0.0.1")
       ->required();
+      
+  app.add_option("-p,--port", port, "The destination port. Defaults to 1998");
 
   app.add_option("-i", identity, "Identity file");
 
   CLI11_PARSE(app, argc, argv);
 
-  client.fromString(client.destination);
-
   Socket socket;
   OpenSSL openssl;
 
-  socket.connect(client.username.c_str(), client.ip.c_str(), client.port);
+  socket.connect(ip.c_str(), port);
 
   while (true) {
     bool authenticated = false;
@@ -75,6 +77,6 @@ int main(int argc, char *argv[]) {
     if (socket.read(buffer) <= 0)
       break;
 
-    writeEncodedRGBBufferToDisk("feed.h264", buffer);
+    writeRGBBufferToPPM("feed.ppm", buffer, 1920, 1080);
   }
 }
