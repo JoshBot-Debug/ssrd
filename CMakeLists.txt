@@ -6,6 +6,8 @@ option(ENABLE_AVX256 "Enable AVX-256 instructions" OFF)
 option(ENABLE_OPEN_MP "Enable multithreaded with OpenMP" OFF)
 option(ENABLE_STL_DEBUG "Enable STL debug mode and DEBUG macro." OFF)
 option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer (disables AddressSanitizer)" OFF)
+option(ENABLE_OPENGL_VALIDATION "Enable OPENGL validation & debug extension" OFF)
+option(ENABLE_VMA_STATS_LOG "Log out OPENGL memory allocator stats when the application exits" OFF)
 
 # === Compiler Flags ===
 set(CMAKE_CXX_STANDARD 23)
@@ -21,12 +23,23 @@ else()
   message(STATUS "AVX-256 is DISABLED.")
 endif()
 
+# === OPENGL validation ===
+if(ENABLE_OPENGL_VALIDATION)
+    add_compile_definitions(ENABLE_OPENGL_VALIDATION)
+endif()
+
+# === Log VMA stats ===
+if(ENABLE_VMA_STATS_LOG)
+    add_compile_definitions(ENABLE_VMA_STATS_LOG)
+endif()
+
 # === Source Files ===
 file(GLOB_RECURSE COMMON_SRC ${CMAKE_SOURCE_DIR}/common/*.cpp)
 file(GLOB_RECURSE CLIENT_SRC ${CMAKE_SOURCE_DIR}/client/*.cpp)
 file(GLOB_RECURSE SERVER_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
+file(GLOB_RECURSE GLAD_SRC ${CMAKE_SOURCE_DIR}/glad/*.c)
 
-add_executable(ssrd-client ${CLIENT_SRC} ${COMMON_SRC})
+add_executable(ssrd-client ${CLIENT_SRC} ${COMMON_SRC} ${GLAD_SRC})
 add_executable(ssrd-server ${SERVER_SRC} ${COMMON_SRC})
 
 # === OpenMP ===
@@ -52,6 +65,8 @@ pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
 pkg_check_modules(OPENSSL REQUIRED openssl)
+pkg_check_modules(OPENGL REQUIRED opengl)
+pkg_check_modules(GLFW3 REQUIRED glfw3)
 
 message(STATUS "PIPEWIRE_LIBRARIES = ${PIPEWIRE_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")
@@ -66,6 +81,8 @@ message(STATUS "AVUTIL_INCLUDE_DIRS = ${AVUTIL_INCLUDE_DIRS}")
 message(STATUS "SWSCALE_LIBRARIES = ${SWSCALE_LIBRARIES}")
 message(STATUS "SWSCALE_INCLUDE_DIRS = ${SWSCALE_INCLUDE_DIRS}")
 message(STATUS "OPENSSL_LIBRARIES = ${OPENSSL_LIBRARIES}")
+message(STATUS "OPENGL_LIBRARIES = ${OPENGL_LIBRARIES}")
+message(STATUS "GLFW3_LIBRARIES = ${GLFW3_LIBRARIES}")
 
 # === Libraries ===
 # Common
@@ -86,8 +103,14 @@ endforeach()
 # target_link_libraries(ssrd-client PRIVATE)
 
 # === Include Directories ===
+target_link_libraries(ssrd-client PRIVATE
+  ${OPENGL_LIBRARIES}
+  ${GLFW3_LIBRARIES}
+)
+
 target_include_directories(ssrd-client PRIVATE 
   ${CMAKE_SOURCE_DIR}/client
+  ${CMAKE_SOURCE_DIR}/glad/include
 )
 
 # Server

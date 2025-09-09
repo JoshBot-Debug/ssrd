@@ -5,9 +5,13 @@
 #include "Socket.h"
 #include "Utility.h"
 
+#include "Window.h"
+
 int main(int argc, char *argv[]) {
   LOG("ssrd-client");
 
+  Window window;
+  return 1;
   CLI::App app{"Secure Shell Remote Desktop"};
   app.set_help_flag("--help", "Display help information.");
 
