@@ -20,19 +20,6 @@ std::vector<uint8_t> randomBytes(size_t length) {
 int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
-  Payload payload;
-
-  payload.set("resize");
-  // payload.set("w");
-  // payload.set(1920);
-  // payload.set("h");
-  // payload.set(1080);
-
-  auto result = Payload::get<const char *>(0, payload.buffer);
-  std::cout << "Result: " << result << std::endl;
-
-  return 1;
-
   Socket socket;
   OpenSSL openssl;
 
@@ -79,11 +66,20 @@ int main(int argc, char *argv[]) {
       Remote remote;
 
       remote.onResize([&socket](int width, int height) {
-        // TODO send buffer
+        Payload payload;
+        payload.set("resize");
+        payload.set(width);
+        payload.set(height);
+
+        socket.send(payload.buffer.data(), payload.buffer.size());
       });
 
       remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
-        if (socket.send(buffer.data(), buffer.size()) == -1)
+        Payload payload;
+        payload.set("stream");
+        payload.set(buffer.data(), buffer.size());
+
+        if (socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
           remote.end();
       });
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <arpa/inet.h>
 #include <cstring>
 #include <stdint.h>
 #include <string>
@@ -9,25 +10,31 @@ struct Payload {
   std::vector<uint8_t> buffer = {};
 
   void set(std::string value) {
-    uint32_t vSize = static_cast<uint32_t>(value.size());
-    buffer.resize(sizeof(uint32_t) + vSize);
-    std::memcpy(buffer.data(), &vSize, sizeof(uint32_t));
-    std::memcpy(buffer.data() + sizeof(uint32_t), value.data(), vSize);
+    uint32_t size = static_cast<uint32_t>(value.size());
+    uint32_t csize = static_cast<uint32_t>(buffer.size());
+    buffer.resize(csize + sizeof(uint32_t) + size);
+    std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
+    std::memcpy(buffer.data() + csize + sizeof(uint32_t), value.data(), size);
   };
 
   void set(uint32_t value) {
-    buffer.resize(sizeof(uint32_t));
     value = htonl(value);
-    std::memcpy(buffer.data(), &value, sizeof(uint32_t));
+    uint32_t size = static_cast<uint32_t>(sizeof(uint32_t));
+    uint32_t csize = static_cast<uint32_t>(buffer.size());
+    buffer.resize(csize + sizeof(uint32_t) + size);
+    std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
+    std::memcpy(buffer.data() + csize + sizeof(uint32_t), &value, size);
   };
 
   void set(const void *value, uint32_t size) {
-    buffer.resize(size);
-    std::memcpy(buffer.data(), value, size);
+    uint32_t csize = static_cast<uint32_t>(buffer.size());
+    buffer.resize(csize + sizeof(uint32_t) + size);
+    std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
+    std::memcpy(buffer.data() + csize + sizeof(uint32_t), value, size);
   };
 
-  template <typename T>
-  static T get(uint32_t index, std::vector<uint8_t> &buffer) {
+  static std::vector<uint8_t> get(uint32_t index,
+                                  std::vector<uint8_t> &buffer) {
     std::vector<uint8_t> result = {};
 
     size_t offset = 0;
@@ -47,6 +54,6 @@ struct Payload {
       offset += size;
     }
 
-    return reinterpret_cast<T>(result.data());
+    return result;
   };
 };

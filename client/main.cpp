@@ -1,6 +1,7 @@
 #include "CLI11.h"
 #include "Constant.h"
 #include "OpenSSL.h"
+#include "Payload.h"
 #include "Socket.h"
 #include "Utility.h"
 
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]) {
   app.add_option("-h,--host", ip,
                  "The IP address of the destination server eg. 127.0.0.1")
       ->required();
-      
+
   app.add_option("-p,--port", port, "The destination port. Defaults to 1998");
 
   app.add_option("-i", identity, "Identity file");
@@ -71,12 +72,31 @@ int main(int argc, char *argv[]) {
 
   LOG("Secure connection established");
 
+  uint32_t width = 0;
+  uint32_t height = 0;
+
   while (true) {
     std::vector<uint8_t> buffer = {};
 
     if (socket.read(buffer) <= 0)
       break;
 
-    writeRGBBufferToPPM("feed.ppm", buffer, 1920, 1080);
+    auto type = std::string(
+        reinterpret_cast<const char *>(Payload::get(0, buffer).data()));
+
+    if (type == "resize") {
+      width =
+          ntohl(*reinterpret_cast<uint32_t *>(Payload::get(1, buffer).data()));
+      height =
+          ntohl(*reinterpret_cast<uint32_t *>(Payload::get(2, buffer).data()));
+    }
+
+    if (type == "stream") {
+      if (!width || !height)
+        continue;
+
+      auto bytes = Payload::get(1, buffer);
+      writeRGBBufferToPPM("feed.ppm", bytes, width, height);
+    }
   }
 }
