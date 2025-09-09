@@ -20,19 +20,16 @@ std::vector<uint8_t> randomBytes(size_t length) {
 int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
-
   Payload payload;
 
   payload.set("resize");
-  payload.set("w");
-  payload.set(1920);
-  payload.set("h");
-  payload.set(1080);
-  
-  // payload.buffer
+  // payload.set("w");
+  // payload.set(1920);
+  // payload.set("h");
+  // payload.set(1080);
 
-  std::string a = "a";
-  std::cout << sizeof(a) << std::endl;
+  auto result = Payload::get<char *>(0, payload.buffer);
+  std::cout << "Result: " << result << std::endl;
 
   return 1;
 
