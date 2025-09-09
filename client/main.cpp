@@ -92,9 +92,6 @@ int main(int argc, char *argv[]) {
     }
 
     if (type == "stream") {
-      if (!width || !height)
-        continue;
-
       auto bytes = Payload::get(1, buffer);
       writeRGBBufferToPPM("feed.ppm", bytes, width, height);
     }
