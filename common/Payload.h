@@ -6,6 +6,14 @@
 #include <string>
 #include <vector>
 
+inline static uint64_t htonll(uint64_t value) {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+  return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32) | htonl(value >> 32);
+#else
+  return value;
+#endif
+}
+
 struct Payload {
   std::vector<uint8_t> buffer = {};
 
@@ -24,6 +32,27 @@ struct Payload {
     buffer.resize(csize + sizeof(uint32_t) + size);
     std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
     std::memcpy(buffer.data() + csize + sizeof(uint32_t), &value, size);
+  };
+
+  void set(int value) {
+    value = htonl(value);
+    uint32_t size = static_cast<uint32_t>(sizeof(uint32_t));
+    uint32_t csize = static_cast<uint32_t>(buffer.size());
+    buffer.resize(csize + sizeof(uint32_t) + size);
+    std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
+    std::memcpy(buffer.data() + csize + sizeof(uint32_t), &value, size);
+  };
+
+  void set(double value) {
+    uint64_t raw;
+    std::memcpy(&raw, &value, sizeof(raw));
+
+    uint64_t v = htonll(raw);
+    uint32_t size = static_cast<uint32_t>(sizeof(double));
+    uint32_t csize = static_cast<uint32_t>(buffer.size());
+    buffer.resize(csize + sizeof(uint32_t) + size);
+    std::memcpy(buffer.data() + csize, &size, sizeof(uint32_t));
+    std::memcpy(buffer.data() + csize + sizeof(uint32_t), &v, size);
   };
 
   void set(const void *value, uint32_t size) {

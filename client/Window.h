@@ -43,10 +43,6 @@ private:
     float u, v;
   };
 
-  struct Init {
-    GLFWkeyfun onKeyPress = nullptr;
-  };
-
 private:
   GLFWwindow *m_Window = nullptr;
 
@@ -71,7 +67,7 @@ public:
     glfwTerminate();
   }
 
-  void initialize(Init init) {
+  void initialize() {
     glfwSetErrorCallback(errorCallback);
 
     if (!glfwInit())
@@ -90,8 +86,6 @@ public:
       glfwTerminate();
       exit(EXIT_FAILURE);
     }
-
-    glfwSetKeyCallback(m_Window, init.onKeyPress);
 
     glfwMakeContextCurrent(m_Window);
     gladLoadGL();
@@ -177,4 +171,6 @@ public:
   int shouldClose() { return glfwWindowShouldClose(m_Window); }
 
   void setBuffer(const std::vector<uint8_t> &buffer) { m_Buffer = buffer; }
+
+  GLFWwindow *getGLFWwindow() { return m_Window; }
 };

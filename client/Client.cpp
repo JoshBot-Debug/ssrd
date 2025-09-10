@@ -138,17 +138,40 @@ void Client::window() {
   m_WindowThread = std::thread([this]() {
     Window w;
 
-    w.initialize({
-        .onKeyPress =
-            [](GLFWwindow *window, int key, int scancode, int action,
-               int mods) {
-              if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-                if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
-                  glfwSetWindowShouldClose(window, GLFW_TRUE);
-                }
-              }
-            },
+    GLFWwindow *window = w.getGLFWwindow();
+
+    glfwSetWindowUserPointer(window, &m_Socket);
+
+    glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode,
+                                  int action, int mods) {
+      if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
+          return glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+      Socket *socket = static_cast<Socket *>(glfwGetWindowUserPointer(window));
+
+      Payload payload;
+      payload.set("key");
+      payload.set(key);
+      payload.set(action);
+      payload.set(mods);
+
+      socket->send(payload.buffer.data(), payload.buffer.size());
     });
+
+    glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos,
+                                        double ypos) {
+      Socket *socket = static_cast<Socket *>(glfwGetWindowUserPointer(window));
+
+      Payload payload;
+      payload.set("mouse");
+      payload.set(xpos);
+      payload.set(ypos);
+
+      socket->send(payload.buffer.data(), payload.buffer.size());
+    });
+
+    w.initialize();
 
     while (m_Running.load() && !w.shouldClose()) {
       {
