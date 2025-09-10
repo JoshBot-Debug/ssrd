@@ -10,8 +10,17 @@
 int main(int argc, char *argv[]) {
   LOG("ssrd-client");
 
-  Window window;
-  return 1;
+  // {
+  //   Window window;
+
+  //   // uint32_t width = 1920;
+  //   // uint32_t height = 1080;
+  //   // std::vector<uint8_t> buffer(width * height * 3);
+  //   // window.resize(width, height);
+  //   // window.run(buffer);
+  //   return EXIT_SUCCESS;
+  // }
+
   CLI::App app{"Secure Shell Remote Desktop"};
   app.set_help_flag("--help", "Display help information.");
 
@@ -79,6 +88,8 @@ int main(int argc, char *argv[]) {
   uint32_t width = 0;
   uint32_t height = 0;
 
+  Window window;
+
   while (true) {
     std::vector<uint8_t> buffer = {};
 
@@ -93,11 +104,13 @@ int main(int argc, char *argv[]) {
           ntohl(*reinterpret_cast<uint32_t *>(Payload::get(1, buffer).data()));
       height =
           ntohl(*reinterpret_cast<uint32_t *>(Payload::get(2, buffer).data()));
+      window.resize(width, height);
     }
 
     if (type == "stream") {
       auto bytes = Payload::get(1, buffer);
-      writeRGBBufferToPPM("feed.ppm", bytes, width, height);
+      window.run(bytes);
+      // writeRGBBufferToPPM("feed.ppm", bytes, width, height);
     }
   }
 }

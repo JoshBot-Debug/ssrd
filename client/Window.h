@@ -20,10 +20,11 @@ void main()
 static const char *fragmentShaderT = R"(
 #version 110
 varying vec2 TexCoord;
-uniform sampler2D tex;
+uniform sampler2D m_Texture;
 void main()
 {
-    gl_FragColor = texture2D(tex, TexCoord);
+    vec2 flippedUV = vec2(TexCoord.x, 1.0 - TexCoord.y);
+    gl_FragColor = texture2D(m_Texture, flippedUV);
 }
 )";
 
@@ -31,10 +32,10 @@ static void errorCallback(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
 }
 
-static void keyCallback(GLFWwindow *window, int key, int scancode, int action,
+static void keyCallback(GLFWwindow *m_Window, int key, int scancode, int action,
                         int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    glfwSetWindowShouldClose(window, GLFW_TRUE);
+    glfwSetWindowShouldClose(m_Window, GLFW_TRUE);
 }
 
 class Window {
@@ -44,11 +45,29 @@ private:
     float u, v;
   };
 
+private:
+  GLFWwindow *m_Window = nullptr;
+
+  GLuint m_VertexBuffer = 0, m_Texture = 0, m_VertexShader = 0,
+         m_FragmentShader = 0, m_Program = 0;
+  GLint m_VPosLocation = 0, m_VTexLocation = 0;
+
+  uint32_t m_TWidth = 0, m_THeight = 0;
+
 public:
-  Window() {
-    GLFWwindow *window;
-    GLuint vertex_buffer, tex, vertexShader, fragmentShader, program;
-    GLint vPosLocation, vTexLocation;
+  Window() { createWindow(); };
+
+  ~Window() {
+    glDeleteProgram(m_Program);
+
+    glfwDestroyWindow(m_Window);
+    glfwTerminate();
+    exit(EXIT_SUCCESS);
+  }
+
+  void createWindow() {
+    if (m_Window)
+      return;
 
     glfwSetErrorCallback(errorCallback);
 
@@ -57,23 +76,22 @@ public:
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    // glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWmonitor *monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
-    uint32_t width = mode->width;
-    uint32_t height = mode->height;
+    m_Window =
+        glfwCreateWindow(mode->width, mode->height, "SSRD", monitor, NULL);
 
-    window = glfwCreateWindow(width, height, "SSRD", monitor, NULL);
-
-    if (!window) {
+    if (!m_Window) {
       glfwTerminate();
       exit(EXIT_FAILURE);
     }
 
-    glfwSetKeyCallback(window, keyCallback);
+    glfwSetKeyCallback(m_Window, keyCallback);
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(m_Window);
     gladLoadGL();
     glfwSwapInterval(1);
 
@@ -82,62 +100,72 @@ public:
                       {-1.0f, 1.0f, 0.0f, 1.0f},
                       {1.0f, 1.0f, 1.0f, 1.0f}};
 
-    glGenBuffers(1, &vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glGenBuffers(1, &m_VertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m_VertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderT, NULL);
-    glCompileShader(vertexShader);
+    m_VertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(m_VertexShader, 1, &vertexShaderT, NULL);
+    glCompileShader(m_VertexShader);
 
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderT, NULL);
-    glCompileShader(fragmentShader);
+    m_FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(m_FragmentShader, 1, &fragmentShaderT, NULL);
+    glCompileShader(m_FragmentShader);
 
-    program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
+    m_Program = glCreateProgram();
+    glAttachShader(m_Program, m_VertexShader);
+    glAttachShader(m_Program, m_FragmentShader);
+    glLinkProgram(m_Program);
 
-    vPosLocation = glGetAttribLocation(program, "vPos");
-    vTexLocation = glGetAttribLocation(program, "vTexCoord");
+    glDeleteShader(m_VertexShader);
+    glDeleteShader(m_FragmentShader);
 
-    glEnableVertexAttribArray(vPosLocation);
-    glVertexAttribPointer(vPosLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+    m_VPosLocation = glGetAttribLocation(m_Program, "vPos");
+    m_VTexLocation = glGetAttribLocation(m_Program, "vTexCoord");
+
+    glEnableVertexAttribArray(m_VPosLocation);
+    glVertexAttribPointer(m_VPosLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                           (void *)0);
 
-    glEnableVertexAttribArray(vTexLocation);
-    glVertexAttribPointer(vTexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+    glEnableVertexAttribArray(m_VTexLocation);
+    glVertexAttribPointer(m_VTexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                           (void *)(2 * sizeof(float)));
+  }
 
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
+  void resize(uint32_t width, uint32_t height) {
+    m_TWidth = width;
+    m_THeight = height;
+
+    if (m_Texture)
+      glDeleteTextures(1, &m_Texture);
+
+    glGenTextures(1, &m_Texture);
+    glBindTexture(GL_TEXTURE_2D, m_Texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_TWidth, m_THeight, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, NULL);
+  }
 
-    std::vector<uint8_t> frame(width * height * 3);
+  void run(const std::vector<uint8_t> &buffer) {
+    if (!m_TWidth || !m_THeight)
+      return;
 
-    while (!glfwWindowShouldClose(window)) {
-      glBindTexture(GL_TEXTURE_2D, tex);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB,
-                      GL_UNSIGNED_BYTE, frame.data());
+    while (!glfwWindowShouldClose(m_Window)) {
+      glBindTexture(GL_TEXTURE_2D, m_Texture);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_TWidth, m_THeight, GL_RGB,
+                      GL_UNSIGNED_BYTE, buffer.data());
 
-      glViewport(0, 0, width, height);
+      glViewport(0, 0, m_TWidth, m_THeight);
       glClear(GL_COLOR_BUFFER_BIT);
-      glUseProgram(program);
-      glBindTexture(GL_TEXTURE_2D, tex);
+      glUseProgram(m_Program);
+      glBindTexture(GL_TEXTURE_2D, m_Texture);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-      glfwSwapBuffers(window);
+      glfwSwapBuffers(m_Window);
       glfwPollEvents();
     }
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    exit(EXIT_SUCCESS);
   }
 };
