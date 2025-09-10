@@ -111,7 +111,8 @@ int main(int argc, char *argv[]) {
 
     if (type == "stream") {
       auto bytes = Payload::get(1, buffer);
-      window.run(bytes);
+            window.run(bytes);
+
       // writeRGBBufferToPPM("feed.ppm", bytes, width, height);
     }
   }
