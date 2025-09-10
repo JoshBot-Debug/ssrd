@@ -11,10 +11,10 @@ static const std::string HOME_DIR = getHomeDirectory();
 Client::~Client() {
   m_Running.store(false);
 
-  if (m_StreamThread.joinable())
-    m_StreamThread.join();
   if (m_WindowThread.joinable())
     m_WindowThread.join();
+  if (m_StreamThread.joinable())
+    m_StreamThread.join();
 }
 
 int Client::initialize(int argc, char *argv[]) {
@@ -59,7 +59,7 @@ int Client::initialize(int argc, char *argv[]) {
 
     if (m_WindowThread.joinable())
       m_WindowThread.join();
-      
+
     if (m_StreamThread.joinable())
       m_StreamThread.join();
   }
