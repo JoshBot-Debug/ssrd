@@ -8,14 +8,7 @@
 
 static const std::string HOME_DIR = getHomeDirectory();
 
-Client::~Client() {
-  m_Running.store(false);
-
-  if (m_WindowThread.joinable())
-    m_WindowThread.join();
-  if (m_StreamThread.joinable())
-    m_StreamThread.join();
-}
+Client::~Client() { m_Running.store(false); }
 
 int Client::initialize(int argc, char *argv[]) {
 
@@ -134,8 +127,8 @@ void Client::stream() {
       }
 
       if (type == "stream") {
-        std::lock_guard<std::mutex> lock(m_VideoBufferMutex);
-        m_VideoBuffer = Payload::get(1, buffer);
+        std::lock_guard<std::mutex> lock(m_VBufferMut);
+        m_VBuffer = Payload::get(1, buffer);
       }
     }
   });
@@ -143,16 +136,31 @@ void Client::stream() {
 
 void Client::window() {
   m_WindowThread = std::thread([this]() {
-    m_Window.create();
+    Window w;
 
-    while (m_Running.load() && !m_Window.shouldClose()) {
+    w.initialize({
+        .onKeyPress =
+            [](GLFWwindow *window, int key, int scancode, int action,
+               int mods) {
+              if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+                if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
+                  glfwSetWindowShouldClose(window, GLFW_TRUE);
+                }
+              }
+            },
+    });
+
+    while (m_Running.load() && !w.shouldClose()) {
       {
-        std::lock_guard<std::mutex> lock(m_VideoBufferMutex);
-        m_Window.setBuffer(m_VideoBuffer);
+        std::lock_guard<std::mutex> lock(m_VBufferMut);
+        w.setBuffer(m_VBuffer);
       }
 
-      m_Window.present(m_Width.load(std::memory_order_relaxed),
-                       m_Height.load(std::memory_order_relaxed));
+      uint32_t width = m_Width.load(std::memory_order_relaxed);
+      uint32_t height = m_Height.load(std::memory_order_relaxed);
+      w.present(width, height);
     }
+
+    m_Running.store(false);
   });
 }

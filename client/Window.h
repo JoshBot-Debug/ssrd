@@ -3,6 +3,7 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
+#include <functional>
 #include <stdio.h>
 #include <stdlib.h>
 #include <thread>
@@ -35,17 +36,15 @@ static void errorCallback(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
 }
 
-static void keyCallback(GLFWwindow *m_Window, int key, int scancode, int action,
-                        int mods) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    glfwSetWindowShouldClose(m_Window, GLFW_TRUE);
-}
-
 class Window {
 private:
   struct Vertex {
     float x, y;
     float u, v;
+  };
+
+  struct Init {
+    GLFWkeyfun onKeyPress = nullptr;
   };
 
 private:
@@ -55,9 +54,9 @@ private:
          m_FragmentShader = 0, m_Program = 0;
   GLint m_VPosLocation = 0, m_VTexLocation = 0;
 
-  uint32_t m_TWidth = 0, m_THeight = 0;
+  uint32_t m_TexWidth = 0, m_TexHeight = 0;
 
-  std::vector<uint8_t> m_Buffer{};
+  std::vector<uint8_t> m_Buffer = {};
 
 public:
   Window() = default;
@@ -66,15 +65,13 @@ public:
     if (m_Program)
       glDeleteProgram(m_Program);
 
-    glfwDestroyWindow(m_Window);
+    if (m_Window)
+      glfwDestroyWindow(m_Window);
+
     glfwTerminate();
-    exit(EXIT_SUCCESS);
   }
 
-  void create() {
-    if (m_Window)
-      return;
-
+  void initialize(Init init) {
     glfwSetErrorCallback(errorCallback);
 
     if (!glfwInit())
@@ -82,20 +79,19 @@ public:
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    // glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWmonitor *monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
     m_Window =
-        glfwCreateWindow(mode->width, mode->height, "SSRD", monitor, NULL);
+        glfwCreateWindow(mode->width, mode->height, "SSRD", nullptr, nullptr);
 
     if (!m_Window) {
       glfwTerminate();
       exit(EXIT_FAILURE);
     }
 
-    glfwSetKeyCallback(m_Window, keyCallback);
+    glfwSetKeyCallback(m_Window, init.onKeyPress);
 
     glfwMakeContextCurrent(m_Window);
     gladLoadGL();
@@ -139,11 +135,11 @@ public:
   }
 
   bool resize(uint32_t width, uint32_t height) {
-    if (m_TWidth == width && m_THeight == height)
+    if (m_TexWidth == width && m_TexHeight == height)
       return false;
 
-    m_TWidth = width;
-    m_THeight = height;
+    m_TexWidth = width;
+    m_TexHeight = height;
 
     if (m_Texture)
       glDeleteTextures(1, &m_Texture);
@@ -154,7 +150,7 @@ public:
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_TWidth, m_THeight, 0, GL_RGB,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, NULL);
 
     return true;
@@ -165,10 +161,10 @@ public:
       return;
 
     glBindTexture(GL_TEXTURE_2D, m_Texture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_TWidth, m_THeight, GL_RGB,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB,
                     GL_UNSIGNED_BYTE, m_Buffer.data());
 
-    glViewport(0, 0, m_TWidth, m_THeight);
+    glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(m_Program);
     glBindTexture(GL_TEXTURE_2D, m_Texture);
@@ -180,5 +176,5 @@ public:
 
   int shouldClose() { return glfwWindowShouldClose(m_Window); }
 
-  void setBuffer(std::vector<uint8_t> &buffer) { m_Buffer = buffer; }
+  void setBuffer(const std::vector<uint8_t> &buffer) { m_Buffer = buffer; }
 };
