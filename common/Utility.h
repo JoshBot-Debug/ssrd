@@ -11,6 +11,7 @@
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <openssl/rand.h>
 
 #ifdef DEBUG
 
@@ -123,6 +124,13 @@ static std::string getHomeDirectory() {
 
   struct passwd *pw = getpwuid(getuid());
   return pw ? pw->pw_dir : "";
+}
+
+static std::vector<uint8_t> randomBytes(size_t length) {
+  std::vector<uint8_t> buffer(length);
+  if (RAND_bytes(buffer.data(), static_cast<int>(length)) != 1)
+    throw std::runtime_error("Failed to generate random bytes");
+  return buffer;
 }
 
 static std::vector<uint8_t> readFileBytes(const std::string &path) {

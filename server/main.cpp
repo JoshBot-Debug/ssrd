@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "OpenSSL.h"
-#include "Remote/Remote.h"
+#include "Remote.h"
 #include "Socket.h"
 #include "Utility.h"
 
@@ -10,87 +10,93 @@
 
 #include "Payload.h"
 
-static const std::string HOME_DIR = getHomeDirectory();
+#include "Server.h"
 
-std::vector<uint8_t> randomBytes(size_t length) {
-  std::vector<uint8_t> buffer(length);
-  if (RAND_bytes(buffer.data(), static_cast<int>(length)) != 1)
-    throw std::runtime_error("Failed to generate random bytes");
-  return buffer;
-}
+// static const std::string HOME_DIR = getHomeDirectory();
+
+// std::vector<uint8_t> randomBytes(size_t length) {
+//   std::vector<uint8_t> buffer(length);
+//   if (RAND_bytes(buffer.data(), static_cast<int>(length)) != 1)
+//     throw std::runtime_error("Failed to generate random bytes");
+//   return buffer;
+// }
 
 int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
-  Socket socket;
-  OpenSSL openssl;
+  Server server;
+  server.initialize();
 
-  bool authenticated = false;
+  // Socket socket;
+  // OpenSSL openssl;
 
-  while (true) {
-    socket.listen(1998);
+  // while (true) {
 
-    std::vector<uint8_t> bytes = randomBytes(256);
+  //   socket.listen(1998);
 
-    while (true) {
-      if (socket.send(bytes.data(), bytes.size()) <= 0)
-        break;
+  //   bool authenticated = false;
+  //   std::vector<uint8_t> bytes = randomBytes(256);
 
-      LOG("Sending random bytes");
+  //   while (true) {
+  //     if (socket.send(bytes.data(), bytes.size()) <= 0)
+  //       break;
 
-      std::vector<uint8_t> signature = {};
+  //     LOG("Sending random bytes");
 
-      if (socket.read(signature) == -1)
-        break;
+  //     std::vector<uint8_t> signature = {};
 
-      if (signature.size()) {
-        LOG("Verifing signature");
+  //     if (socket.read(signature) == -1)
+  //       break;
 
-        EVP_PKEY *publicKey =
-            openssl.loadPublicKey((HOME_DIR + "/.ssrd/public.pem").c_str());
+  //     if (signature.size()) {
+  //       LOG("Verifing signature");
 
-        authenticated = openssl.verify(
-            publicKey, bytes.data(), bytes.size(),
-            static_cast<const uint8_t *>(signature.data()), signature.size());
+  //       EVP_PKEY *publicKey =
+  //           openssl.loadPublicKey((HOME_DIR + "/.ssrd/public.pem").c_str());
 
-        break;
-      }
-    }
+  //       authenticated = openssl.verify(
+  //           publicKey, bytes.data(), bytes.size(),
+  //           static_cast<const uint8_t *>(signature.data()),
+  //           signature.size());
 
-    if (!authenticated) {
-      socket.close(Socket::Close::CLIENT);
-      continue;
-    }
+  //       break;
+  //     }
+  //   }
 
-    if (socket.send(&authenticated, sizeof(authenticated)) > 0) {
-      LOG("Secure connection established");
+  //   if (!authenticated) {
+  //     socket.close(Socket::Close::CLIENT);
+  //     continue;
+  //   }
 
-      Remote remote;
+  //   if (socket.send(&authenticated, sizeof(authenticated)) > 0) {
+  //     LOG("Secure connection established");
 
-      remote.onResize([&socket](int width, int height) {
-        Payload payload;
-        payload.set("resize");
-        payload.set(width);
-        payload.set(height);
+  //     Remote remote;
 
-        socket.send(payload.buffer.data(), payload.buffer.size());
-      });
+  //     remote.onResize([&socket](int width, int height) {
+  //       Payload payload;
+  //       payload.set("resize");
+  //       payload.set(width);
+  //       payload.set(height);
 
-      remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
-        Payload payload;
-        payload.set("stream");
-        payload.set(buffer.data(), buffer.size());
+  //       socket.send(payload.buffer.data(), payload.buffer.size());
+  //     });
 
-        if (socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
-          remote.end();
-      });
+  //     remote.onStream([&socket, &remote](std::vector<uint8_t> buffer) {
+  //       Payload payload;
+  //       payload.set("stream");
+  //       payload.set(buffer.data(), buffer.size());
 
-      LOG("Remote desktop begin");
+  //       if (socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
+  //         remote.end();
+  //     });
 
-      remote.begin();
+  //     LOG("Remote desktop begin");
 
-      socket.close(Socket::Close::CLIENT);
-      LOG("Remote desktop end");
-    }
-  }
+  //     remote.begin();
+
+  //     socket.close(Socket::Close::CLIENT);
+  //     LOG("Remote desktop end");
+  //   }
+  // }
 }

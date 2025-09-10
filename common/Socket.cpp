@@ -1,5 +1,6 @@
 #include "Socket.h"
 
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -118,23 +119,18 @@ ssize_t Socket::send(const void *bytes, size_t size) {
 
   uint32_t pSize = htonl(static_cast<uint32_t>(size));
 
-  // Send the size
-  ssize_t sent = send(fd, &pSize, sizeof(pSize), 0);
+  // [size + data]
+  std::vector<uint8_t> buffer(sizeof(pSize) + size);
+  std::memcpy(buffer.data(), &pSize, sizeof(pSize));
+  std::memcpy(buffer.data() + sizeof(pSize), bytes, size);
+
+  ssize_t sent = send(fd, buffer.data(), buffer.size(), 0);
 
   if (sent <= 0)
     return sent;
 
-  if (sent < sizeof(pSize))
-    throw std::runtime_error("Failed to send size bytes");
-
-  sent = send(fd, bytes, size, 0);
-
-  if (sent <= 0)
-    return sent;
-
-  // Send the buffer
-  if (sent < size)
-    throw std::runtime_error("Failed to send bytes");
+  if (static_cast<size_t>(sent) < buffer.size())
+    throw std::runtime_error("Failed to send all bytes");
 
   return sent;
 }

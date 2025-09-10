@@ -43,6 +43,12 @@ private:
     float u, v;
   };
 
+  struct Init {
+    void *data = nullptr;
+    GLFWkeyfun onKeyPress = nullptr;
+    GLFWcursorposfun onMouseMove = nullptr;
+  };
+
 private:
   GLFWwindow *m_Window = nullptr;
 
@@ -67,7 +73,7 @@ public:
     glfwTerminate();
   }
 
-  void initialize() {
+  void initialize(Init init) {
     glfwSetErrorCallback(errorCallback);
 
     if (!glfwInit())
@@ -81,6 +87,10 @@ public:
 
     m_Window =
         glfwCreateWindow(mode->width, mode->height, "SSRD", nullptr, nullptr);
+
+    glfwSetWindowUserPointer(m_Window, init.data);
+    glfwSetKeyCallback(m_Window, init.onKeyPress);
+    glfwSetCursorPosCallback(m_Window, init.onMouseMove);
 
     if (!m_Window) {
       glfwTerminate();
@@ -171,6 +181,4 @@ public:
   int shouldClose() { return glfwWindowShouldClose(m_Window); }
 
   void setBuffer(const std::vector<uint8_t> &buffer) { m_Buffer = buffer; }
-
-  GLFWwindow *getGLFWwindow() { return m_Window; }
 };

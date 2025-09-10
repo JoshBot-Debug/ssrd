@@ -4,6 +4,7 @@
 #include <mutex>
 #include <stdlib.h>
 #include <thread>
+#include <string>
 
 #include "OpenSSL.h"
 #include "Socket.h"

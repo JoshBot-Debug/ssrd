@@ -4,8 +4,6 @@
 #include "Constant.h"
 #include "Payload.h"
 
-#include <string>
-
 static const std::string HOME_DIR = getHomeDirectory();
 
 Client::~Client() { m_Running.store(false); }
@@ -114,15 +112,14 @@ void Client::stream() {
       if (m_Socket.read(buffer) <= 0)
         break;
 
-      auto type = std::string(
-          reinterpret_cast<const char *>(Payload::get(0, buffer).data()));
+      std::vector<uint8_t> bytes = Payload::get(0, buffer);
+      auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
+                              bytes.size());
 
       if (type == "resize") {
-        m_Width.store(ntohl(*reinterpret_cast<uint32_t *>(
-                          Payload::get(1, buffer).data())),
+        m_Width.store(Payload::toUInt(Payload::get(1, buffer)),
                       std::memory_order_relaxed);
-        m_Height.store(ntohl(*reinterpret_cast<uint32_t *>(
-                           Payload::get(2, buffer).data())),
+        m_Height.store(Payload::toUInt(Payload::get(2, buffer)),
                        std::memory_order_relaxed);
       }
 
@@ -138,40 +135,39 @@ void Client::window() {
   m_WindowThread = std::thread([this]() {
     Window w;
 
-    GLFWwindow *window = w.getGLFWwindow();
+    w.initialize({
+        .data = &m_Socket,
+        .onKeyPress =
+            [](GLFWwindow *window, int key, int scancode, int action,
+               int mods) {
+              if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+                if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
+                  return glfwSetWindowShouldClose(window, GLFW_TRUE);
 
-    glfwSetWindowUserPointer(window, &m_Socket);
+              Socket *socket =
+                  static_cast<Socket *>(glfwGetWindowUserPointer(window));
 
-    glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode,
-                                  int action, int mods) {
-      if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
-          return glfwSetWindowShouldClose(window, GLFW_TRUE);
+              Payload payload;
+              payload.set("key");
+              payload.set(key);
+              payload.set(action);
+              payload.set(mods);
 
-      Socket *socket = static_cast<Socket *>(glfwGetWindowUserPointer(window));
+              socket->send(payload.buffer.data(), payload.buffer.size());
+            },
+        .onMouseMove =
+            [](GLFWwindow *window, double xpos, double ypos) {
+              Socket *socket =
+                  static_cast<Socket *>(glfwGetWindowUserPointer(window));
 
-      Payload payload;
-      payload.set("key");
-      payload.set(key);
-      payload.set(action);
-      payload.set(mods);
+              Payload payload;
+              payload.set("mouse");
+              payload.set(xpos);
+              payload.set(ypos);
 
-      socket->send(payload.buffer.data(), payload.buffer.size());
+              socket->send(payload.buffer.data(), payload.buffer.size());
+            },
     });
-
-    glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos,
-                                        double ypos) {
-      Socket *socket = static_cast<Socket *>(glfwGetWindowUserPointer(window));
-
-      Payload payload;
-      payload.set("mouse");
-      payload.set(xpos);
-      payload.set(ypos);
-
-      socket->send(payload.buffer.data(), payload.buffer.size());
-    });
-
-    w.initialize();
 
     while (m_Running.load() && !w.shouldClose()) {
       {
