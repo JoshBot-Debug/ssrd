@@ -10,7 +10,7 @@
 
 #include "Payload.h"
 
-const std::string HOME_DIR = getHomeDirectory();
+static const std::string HOME_DIR = getHomeDirectory();
 
 std::vector<uint8_t> randomBytes(size_t length) {
   std::vector<uint8_t> buffer(length);

@@ -7,10 +7,13 @@
 
 #include "Window.h"
 
-#include <thread>
+#include "Client.h"
 
 int main(int argc, char *argv[]) {
   LOG("ssrd-client");
+
+  Client client;
+  client.initialize(argc, argv);
 
   // {
   //   Window window;
@@ -23,97 +26,97 @@ int main(int argc, char *argv[]) {
   //   return EXIT_SUCCESS;
   // }
 
-  CLI::App app{"Secure Shell Remote Desktop"};
-  app.set_help_flag("--help", "Display help information.");
+  // CLI::App app{"Secure Shell Remote Desktop"};
+  // app.set_help_flag("--help", "Display help information.");
 
-  std::string identity = "/home/joshua/.ssrd/private.pem";
+  // std::string identity = "/home/joshua/.ssrd/private.pem";
 
-  std::string ip;
-  uint16_t port = 1998;
+  // std::string ip;
+  // uint16_t port = 1998;
 
-  app.add_option("-h,--host", ip,
-                 "The IP address of the destination server eg. 127.0.0.1")
-      ->required();
+  // app.add_option("-h,--host", ip,
+  //                "The IP address of the destination server eg. 127.0.0.1")
+  //     ->required();
 
-  app.add_option("-p,--port", port, "The destination port. Defaults to 1998");
+  // app.add_option("-p,--port", port, "The destination port. Defaults to 1998");
 
-  app.add_option("-i", identity, "Identity file");
+  // app.add_option("-i", identity, "Identity file");
 
-  CLI11_PARSE(app, argc, argv);
+  // CLI11_PARSE(app, argc, argv);
 
-  Socket socket;
-  OpenSSL openssl;
+  // Socket socket;
+  // OpenSSL openssl;
 
-  socket.connect(ip.c_str(), port);
+  // socket.connect(ip.c_str(), port);
 
-  while (true) {
-    bool authenticated = false;
+  // while (true) {
+  //   bool authenticated = false;
 
-    std::vector<uint8_t> buffer = {};
+  //   std::vector<uint8_t> buffer = {};
 
-    if (socket.read(buffer) == -1)
-      break;
+  //   if (socket.read(buffer) == -1)
+  //     break;
 
-    if (!buffer.size())
-      continue;
+  //   if (!buffer.size())
+  //     continue;
 
-    LOG("Received random bytes");
+  //   LOG("Received random bytes");
 
-    openssl.loadPrivateKey(identity.c_str());
-    std::vector<uint8_t> signature = openssl.sign(buffer.data(), buffer.size());
+  //   openssl.loadPrivateKey(identity.c_str());
+  //   std::vector<uint8_t> signature = openssl.sign(buffer.data(), buffer.size());
 
-    LOG("Signed random bytes");
+  //   LOG("Signed random bytes");
 
-    socket.send(signature.data(), signature.size());
+  //   socket.send(signature.data(), signature.size());
 
-    LOG("Sent signature");
+  //   LOG("Sent signature");
 
-    while (true) {
-      std::vector<uint8_t> buffer = {};
+  //   while (true) {
+  //     std::vector<uint8_t> buffer = {};
 
-      if (socket.read(buffer) == -1)
-        break;
+  //     if (socket.read(buffer) == -1)
+  //       break;
 
-      if (!buffer.size())
-        continue;
+  //     if (!buffer.size())
+  //       continue;
 
-      authenticated = buffer[0];
-      break;
-    }
+  //     authenticated = buffer[0];
+  //     break;
+  //   }
 
-    if (authenticated)
-      break;
-  }
+  //   if (authenticated)
+  //     break;
+  // }
 
-  LOG("Secure connection established");
+  // LOG("Secure connection established");
 
-  uint32_t width = 0;
-  uint32_t height = 0;
+  // uint32_t width = 0;
+  // uint32_t height = 0;
 
-  Window window;
+  // Window window;
 
-  while (true) {
-    std::vector<uint8_t> buffer = {};
+  // while (true) {
+  //   std::vector<uint8_t> buffer = {};
 
-    if (socket.read(buffer) <= 0)
-      break;
+  //   if (socket.read(buffer) <= 0)
+  //     break;
 
-    auto type = std::string(
-        reinterpret_cast<const char *>(Payload::get(0, buffer).data()));
+  //   auto type = std::string(
+  //       reinterpret_cast<const char *>(Payload::get(0, buffer).data()));
 
-    if (type == "resize") {
-      width =
-          ntohl(*reinterpret_cast<uint32_t *>(Payload::get(1, buffer).data()));
-      height =
-          ntohl(*reinterpret_cast<uint32_t *>(Payload::get(2, buffer).data()));
-      window.resize(width, height);
-    }
+  //   if (type == "resize") {
+  //     width =
+  //         ntohl(*reinterpret_cast<uint32_t *>(Payload::get(1, buffer).data()));
+  //     height =
+  //         ntohl(*reinterpret_cast<uint32_t *>(Payload::get(2, buffer).data()));
+  //     window.resize(width, height);
+  //   }
 
-    if (type == "stream") {
-      auto bytes = Payload::get(1, buffer);
-            window.run(bytes);
+  //   if (type == "stream") {
+  //     auto bytes = Payload::get(1, buffer);
+  //     window.run(bytes);
 
-      // writeRGBBufferToPPM("feed.ppm", bytes, width, height);
-    }
-  }
+  //     // writeRGBBufferToPPM("feed.ppm", bytes, width, height);
+  //   }
+  // }
 }

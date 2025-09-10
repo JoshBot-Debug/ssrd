@@ -24,7 +24,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/ssrd-client",
-      "args": ["joshua@10.60.1.41", "-i", "/home/joshua/.ssrd/public.pem"],
+      "args": ["-h", "0.0.0.0"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "externalConsole": false,

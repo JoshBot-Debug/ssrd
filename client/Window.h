@@ -1,8 +1,11 @@
+#pragma once
+
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <thread>
 #include <vector>
 
 static const char *vertexShaderT = R"(
@@ -54,18 +57,21 @@ private:
 
   uint32_t m_TWidth = 0, m_THeight = 0;
 
+  std::vector<uint8_t> m_Buffer{};
+
 public:
-  Window() { createWindow(); };
+  Window() = default;
 
   ~Window() {
-    glDeleteProgram(m_Program);
+    if (m_Program)
+      glDeleteProgram(m_Program);
 
     glfwDestroyWindow(m_Window);
     glfwTerminate();
     exit(EXIT_SUCCESS);
   }
 
-  void createWindow() {
+  void create() {
     if (m_Window)
       return;
 
@@ -132,7 +138,10 @@ public:
                           (void *)(2 * sizeof(float)));
   }
 
-  void resize(uint32_t width, uint32_t height) {
+  bool resize(uint32_t width, uint32_t height) {
+    if (m_TWidth == width && m_THeight == height)
+      return false;
+
     m_TWidth = width;
     m_THeight = height;
 
@@ -147,25 +156,29 @@ public:
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_TWidth, m_THeight, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, NULL);
+
+    return true;
   }
 
-  void run(const std::vector<uint8_t> &buffer) {
-    if (!m_TWidth || !m_THeight)
+  void present(uint32_t width, uint32_t height) {
+    if (resize(width, height) || !m_Buffer.size())
       return;
 
-    while (!glfwWindowShouldClose(m_Window)) {
-      glBindTexture(GL_TEXTURE_2D, m_Texture);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_TWidth, m_THeight, GL_RGB,
-                      GL_UNSIGNED_BYTE, buffer.data());
+    glBindTexture(GL_TEXTURE_2D, m_Texture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_TWidth, m_THeight, GL_RGB,
+                    GL_UNSIGNED_BYTE, m_Buffer.data());
 
-      glViewport(0, 0, m_TWidth, m_THeight);
-      glClear(GL_COLOR_BUFFER_BIT);
-      glUseProgram(m_Program);
-      glBindTexture(GL_TEXTURE_2D, m_Texture);
-      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glViewport(0, 0, m_TWidth, m_THeight);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(m_Program);
+    glBindTexture(GL_TEXTURE_2D, m_Texture);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-      glfwSwapBuffers(m_Window);
-      glfwPollEvents();
-    }
+    glfwSwapBuffers(m_Window);
+    glfwPollEvents();
   }
+
+  int shouldClose() { return glfwWindowShouldClose(m_Window); }
+
+  void setBuffer(std::vector<uint8_t> &buffer) { m_Buffer = buffer; }
 };
