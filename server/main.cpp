@@ -10,6 +10,8 @@
 
 #include "Payload.h"
 
+const std::string HOME_DIR = getHomeDirectory();
+
 std::vector<uint8_t> randomBytes(size_t length) {
   std::vector<uint8_t> buffer(length);
   if (RAND_bytes(buffer.data(), static_cast<int>(length)) != 1)
@@ -45,7 +47,7 @@ int main(int argc, char *argv[]) {
         LOG("Verifing signature");
 
         EVP_PKEY *publicKey =
-            openssl.loadPublicKey("/home/joshua/.ssrd/public.pem");
+            openssl.loadPublicKey((HOME_DIR + "/.ssrd/public.pem").c_str());
 
         authenticated = openssl.verify(
             publicKey, bytes.data(), bytes.size(),
