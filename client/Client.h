@@ -25,14 +25,14 @@ private:
   std::mutex m_VideoBufferMutex;
   std::vector<uint8_t> m_VideoBuffer = {};
 
-  bool m_ApplicationRunning = true;
+  std::atomic<bool> m_Running = true;
 
   std::thread m_WindowThread;
   std::thread m_StreamThread;
 
 public:
   Client() = default;
-  ~Client() = default;
+  ~Client();
 
   int initialize(int argc, char *argv[]);
 

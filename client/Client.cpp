@@ -8,6 +8,15 @@
 
 static const std::string HOME_DIR = getHomeDirectory();
 
+Client::~Client() {
+  m_Running.store(false);
+
+  if (m_StreamThread.joinable())
+    m_StreamThread.join();
+  if (m_WindowThread.joinable())
+    m_WindowThread.join();
+}
+
 int Client::initialize(int argc, char *argv[]) {
 
   // CLI
@@ -48,8 +57,11 @@ int Client::initialize(int argc, char *argv[]) {
     window();
     stream();
 
-    while (m_ApplicationRunning) {
-    }
+    if (m_WindowThread.joinable())
+      m_WindowThread.join();
+      
+    if (m_StreamThread.joinable())
+      m_StreamThread.join();
   }
 
   return EXIT_SUCCESS;
@@ -102,9 +114,8 @@ bool Client::authentication() {
 }
 
 void Client::stream() {
-
   m_StreamThread = std::thread([this]() {
-    while (true) {
+    while (m_Running.load()) {
       std::vector<uint8_t> buffer = {};
 
       if (m_Socket.read(buffer) <= 0)
@@ -128,24 +139,20 @@ void Client::stream() {
       }
     }
   });
-
-  m_StreamThread.detach();
 }
 
 void Client::window() {
   m_WindowThread = std::thread([this]() {
     m_Window.create();
 
-    while (!m_Window.shouldClose()) {
+    while (m_Running.load() && !m_Window.shouldClose()) {
       {
         std::lock_guard<std::mutex> lock(m_VideoBufferMutex);
         m_Window.setBuffer(m_VideoBuffer);
       }
 
       m_Window.present(m_Width.load(std::memory_order_relaxed),
-                     m_Height.load(std::memory_order_relaxed));
+                       m_Height.load(std::memory_order_relaxed));
     }
   });
-
-  m_WindowThread.detach();
 }
