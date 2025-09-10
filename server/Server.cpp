@@ -102,8 +102,6 @@ void Server::remote() {
       std::vector<uint8_t> bytes = Payload::get(0, buffer);
       auto type = std::string(reinterpret_cast<const char *>(bytes.data()), bytes.size());
 
-      LOG(type);
-
       if (type == "key") {
         auto key = Payload::toInt(Payload::get(1, buffer));
         auto action = Payload::toInt(Payload::get(2, buffer));
