@@ -4,7 +4,21 @@
 
 #include <spa/debug/types.h>
 
+#include "Keys.h"
 #include "Utility.h"
+
+static XdpKeyState mapState(int action) {
+  switch (action) {
+  case GLFW_PRESS:
+    return XDP_KEY_PRESSED;
+  case GLFW_RELEASE:
+    return XDP_KEY_RELEASED;
+  case GLFW_REPEAT:
+    return XDP_KEY_PRESSED; // no xdp equivilant
+  default:
+    return XDP_KEY_RELEASED;
+  }
+}
 
 Remote::Remote() {
   pw_init(nullptr, nullptr);
@@ -303,7 +317,7 @@ void Remote::begin() {
       XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
       XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
 
-  // xdp_session_keyboard_key
+  // xdp_session_keyboard_key()
   // xdp_session_pointer_position
 
   g_main_loop_run(m_Data.g.loop);
@@ -312,4 +326,13 @@ void Remote::begin() {
 void Remote::end() {
   if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
     g_main_loop_quit(m_Data.g.loop);
+}
+
+void Remote::keyboard(int key, int action, int mods) {
+  xdp_session_keyboard_key(m_Data.g.session, TRUE, key, mapState(action));
+}
+
+void Remote::mouse(double x, double y) {
+  LOG(xdp_session_get_type());
+  xdp_session_pointer_motion(m_Data.g.session, x, y);
 }

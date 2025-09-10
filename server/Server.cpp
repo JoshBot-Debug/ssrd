@@ -100,19 +100,22 @@ void Server::remote() {
         break;
 
       std::vector<uint8_t> bytes = Payload::get(0, buffer);
-      auto type = std::string(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+      auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
+                              bytes.size());
 
       if (type == "key") {
         auto key = Payload::toInt(Payload::get(1, buffer));
         auto action = Payload::toInt(Payload::get(2, buffer));
         auto mods = Payload::toInt(Payload::get(3, buffer));
 
+        m_Remote->keyboard(key, action, mods);
       }
 
       if (type == "mouse") {
         auto x = Payload::toDouble(Payload::get(1, buffer));
         auto y = Payload::toDouble(Payload::get(2, buffer));
 
+        m_Remote->mouse(x, y);
       }
     }
   });

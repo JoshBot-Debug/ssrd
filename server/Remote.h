@@ -67,11 +67,16 @@ public:
   Remote();
   ~Remote();
 
-  void onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
+  void
+  onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
 
   void onResize(const std::function<void(int width, int height)> &callback);
 
   void begin();
 
   void end();
+
+  void keyboard(int key, int action, int mods);
+  
+  void mouse(double x, double y);
 };

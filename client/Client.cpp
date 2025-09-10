@@ -135,6 +135,9 @@ void Client::window() {
   m_WindowThread = std::thread([this]() {
     Window w;
 
+    static double prevMouseX = 0;
+    static double prevMouseY = 0;
+
     w.initialize({
         .data = &m_Socket,
         .onKeyPress =
@@ -162,10 +165,13 @@ void Client::window() {
 
               Payload payload;
               payload.set("mouse");
-              payload.set(xpos);
-              payload.set(ypos);
+              payload.set(xpos - prevMouseX);
+              payload.set(ypos - prevMouseY);
 
               socket->send(payload.buffer.data(), payload.buffer.size());
+
+              prevMouseX = xpos;
+              prevMouseY = ypos;
             },
     });
 
