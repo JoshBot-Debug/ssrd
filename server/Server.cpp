@@ -109,6 +109,7 @@ void Server::remote() {
         auto mods = Payload::toInt(Payload::get(3, buffer));
 
         m_Remote->keyboard(key, action, mods);
+        LOG(type, key, action, mods);
       }
 
       if (type == "mouse") {
