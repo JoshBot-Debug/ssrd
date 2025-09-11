@@ -16,21 +16,32 @@ static XdpKeyState GLFWToXDPKeyState(int action) {
     return XDP_KEY_PRESSED;
   case GLFW_RELEASE:
     return XDP_KEY_RELEASED;
-  case GLFW_REPEAT:
-    return XDP_KEY_PRESSED; // no xdp equivilant
   default:
     return XDP_KEY_RELEASED;
   }
 }
 
-static XdpButtonState GLFWToXDPMouseButtonState(int action) {
+static XdpButtonState glfwToXdpMouseButtonState(int action) {
   switch (action) {
-  case GLFW_RELEASE:
-    return XDP_BUTTON_RELEASED;
   case GLFW_PRESS:
     return XDP_BUTTON_PRESSED;
+  case GLFW_RELEASE:
+    return XDP_BUTTON_RELEASED;
   default:
     return XDP_BUTTON_RELEASED;
+  }
+}
+
+static int glfwToXdpMouseButton(int glfwButton) {
+  switch (glfwButton) {
+  case GLFW_MOUSE_BUTTON_LEFT:
+    return 1;
+  case GLFW_MOUSE_BUTTON_MIDDLE:
+    return 2;
+  case GLFW_MOUSE_BUTTON_RIGHT:
+    return 3;
+  default:
+    return 0; // Unknown
   }
 }
 
@@ -345,21 +356,6 @@ void Remote::keyboard(int key, int action, int mods) {
 }
 
 void Remote::mouse(double x, double y) {
-
-  // Mouse motion
-  // {
-  //   int width = m_Data.format.info.raw.size.width;
-  //   int height = m_Data.format.info.raw.size.height;
-
-  //   double deltaX = width * (x - s_PreviousMouseX);
-  //   double deltaY = height * (y - s_PreviousMouseY);
-
-  //   xdp_session_pointer_motion(m_Data.g.session, deltaX, deltaY);
-
-  //   s_PreviousMouseX = x;
-  //   s_PreviousMouseY = y;
-  // }
-
   if (!m_Data.pw.stream)
     return;
 
@@ -374,17 +370,17 @@ void Remote::mouse(double x, double y) {
 }
 
 void Remote::mouseButton(int button, int action, int mods) {
-  xdp_session_pointer_button(m_Data.g.session, button,
-                             GLFWToXDPMouseButtonState(action));
+  xdp_session_pointer_button(m_Data.g.session, glfwToXdpMouseButton(button),
+                             glfwToXdpMouseButtonState(action));
 }
 
 void Remote::mouseScroll(double x, double y) {
-  if (x > 0.0)
+  if (x != 0.0)
     xdp_session_pointer_axis_discrete(
         m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_HORIZONTAL_SCROLL,
         static_cast<int>(x));
 
-  if (y > 0.0)
+  if (y != 0.0)
     xdp_session_pointer_axis_discrete(m_Data.g.session,
                                       XdpDiscreteAxis::XDP_AXIS_VERTICAL_SCROLL,
                                       static_cast<int>(y));

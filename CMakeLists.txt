@@ -91,8 +91,6 @@ target_include_directories(${target} PRIVATE
 endforeach()
 
 # Client
-# target_link_libraries(ssrd-client PRIVATE)
-
 # === Include Directories ===
 target_link_libraries(ssrd-client PRIVATE
   ${OPENGL_LIBRARIES}

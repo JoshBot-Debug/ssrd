@@ -108,14 +108,15 @@ void Server::remote() {
         auto action = Payload::toInt(Payload::get(2, buffer));
         auto mods = Payload::toInt(Payload::get(3, buffer));
 
+        LOG("key", key, action, mods);
         m_Remote->keyboard(key, action, mods);
-        LOG(type, key, action, mods);
       }
 
       if (type == "mouse-move") {
         auto x = Payload::toDouble(Payload::get(1, buffer));
         auto y = Payload::toDouble(Payload::get(2, buffer));
 
+        LOG("mouse-move", x, y);
         m_Remote->mouse(x, y);
       }
 
@@ -123,7 +124,8 @@ void Server::remote() {
         auto button = Payload::toInt(Payload::get(1, buffer));
         auto action = Payload::toInt(Payload::get(2, buffer));
         auto mods = Payload::toInt(Payload::get(3, buffer));
-        
+
+        LOG("mouse-button", button, action, mods);
         m_Remote->mouseButton(button, action, mods);
       }
 
@@ -131,6 +133,7 @@ void Server::remote() {
         auto x = Payload::toDouble(Payload::get(1, buffer));
         auto y = Payload::toDouble(Payload::get(2, buffer));
 
+        LOG("mouse-scroll", x, y);
         m_Remote->mouseScroll(x, y);
       }
     }
