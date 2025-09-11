@@ -329,7 +329,7 @@ void Remote::end() {
 }
 
 void Remote::keyboard(int key, int action, int mods) {
-  xdp_session_keyboard_key(m_Data.g.session, FALSE, key, mapState(action));
+  xdp_session_keyboard_key(m_Data.g.session, TRUE, key, mapState(action));
 }
 
 void Remote::mouse(double x, double y) {
