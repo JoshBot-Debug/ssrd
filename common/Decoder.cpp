@@ -1,5 +1,7 @@
 #include "Decoder.h"
 
+#include <stdexcept>
+
 Decoder::~Decoder() {
   if (m_Sws_ctx) {
     sws_freeContext(m_Sws_ctx);

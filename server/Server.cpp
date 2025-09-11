@@ -80,7 +80,8 @@ void Server::remote() {
   });
 
   m_Remote->onStream([this](std::vector<uint8_t> raw) {
-    std::vector<uint8_t> buffer = m_Encoder.encode(raw);
+    // std::vector<uint8_t> buffer = m_Encoder.encode(raw);
+    std::vector<uint8_t> buffer = raw;
 
     Payload payload;
     payload.set("stream");

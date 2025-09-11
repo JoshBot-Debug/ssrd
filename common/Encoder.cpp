@@ -1,6 +1,6 @@
 #include "Encoder.h"
 
-#include <iostream>
+#include <stdexcept>
 
 Encoder::~Encoder() {
   if (m_Sws_ctx) {

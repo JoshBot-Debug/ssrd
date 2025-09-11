@@ -130,9 +130,6 @@ target_include_directories(ssrd-server PRIVATE
   ${PIPEWIRE_INCLUDE_DIRS}
   ${PORTAL_INCLUDE_DIRS}
   ${PORTAL_GTK_INCLUDE_DIRS}
-  ${AVCODEC_INCLUDE_DIRS}
-  ${SWSCALE_INCLUDE_DIRS}
-  ${AVUTIL_INCLUDE_DIRS}
 )
 
 # === Optional: ccache (speed up rebuilds) ===

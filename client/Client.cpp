@@ -128,7 +128,8 @@ void Client::stream() {
 
       if (type == "stream") {
         std::lock_guard<std::mutex> lock(m_VBufferMut);
-        m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
+        // m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
+        m_VBuffer = Payload::get(1, buffer);
       }
     }
   });
