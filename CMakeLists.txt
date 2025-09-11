@@ -64,6 +64,9 @@ pkg_check_modules(PORTAL_GTK REQUIRED libportal-gtk4)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(OPENGL REQUIRED opengl)
 pkg_check_modules(GLFW3 REQUIRED glfw3)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
+pkg_check_modules(SWSCALE REQUIRED libswscale)
 
 message(STATUS "PIPEWIRE_LIBRARIES = ${PIPEWIRE_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")
@@ -74,6 +77,12 @@ message(STATUS "PORTAL_GTK_INCLUDE_DIRS = ${PORTAL_GTK_INCLUDE_DIRS}")
 message(STATUS "OPENSSL_LIBRARIES = ${OPENSSL_LIBRARIES}")
 message(STATUS "OPENGL_LIBRARIES = ${OPENGL_LIBRARIES}")
 message(STATUS "GLFW3_LIBRARIES = ${GLFW3_LIBRARIES}")
+message(STATUS "AVCODEC_LIBRARIES = ${AVCODEC_LIBRARIES}")
+message(STATUS "AVCODEC_INCLUDE_DIRS = ${AVCODEC_INCLUDE_DIRS}")
+message(STATUS "AVUTIL_LIBRARIES = ${AVUTIL_LIBRARIES}")
+message(STATUS "AVUTIL_INCLUDE_DIRS = ${AVUTIL_INCLUDE_DIRS}")
+message(STATUS "SWSCALE_LIBRARIES = ${SWSCALE_LIBRARIES}")
+message(STATUS "SWSCALE_INCLUDE_DIRS = ${SWSCALE_INCLUDE_DIRS}")
 
 # === Libraries ===
 # Common
@@ -95,6 +104,9 @@ endforeach()
 target_link_libraries(ssrd-client PRIVATE
   ${OPENGL_LIBRARIES}
   ${GLFW3_LIBRARIES}
+  ${AVCODEC_LIBRARIES}
+  ${SWSCALE_LIBRARIES}
+  ${AVUTIL_LIBRARIES}
 )
 
 target_include_directories(ssrd-client PRIVATE 
@@ -107,6 +119,9 @@ target_link_libraries(ssrd-server PRIVATE
   ${PIPEWIRE_LIBRARIES}
   ${PORTAL_LIBRARIES}
   ${PORTAL_GTK_LIBRARIES}
+  ${AVCODEC_LIBRARIES}
+  ${SWSCALE_LIBRARIES}
+  ${AVUTIL_LIBRARIES}
 )
 
 # === Include Directories ===
@@ -115,6 +130,9 @@ target_include_directories(ssrd-server PRIVATE
   ${PIPEWIRE_INCLUDE_DIRS}
   ${PORTAL_INCLUDE_DIRS}
   ${PORTAL_GTK_INCLUDE_DIRS}
+  ${AVCODEC_INCLUDE_DIRS}
+  ${SWSCALE_INCLUDE_DIRS}
+  ${AVUTIL_INCLUDE_DIRS}
 )
 
 # === Optional: ccache (speed up rebuilds) ===

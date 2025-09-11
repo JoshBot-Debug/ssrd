@@ -9,6 +9,7 @@
 #include "OpenSSL.h"
 #include "Socket.h"
 #include "Window.h"
+#include "Decoder.h"
 
 class Client {
 private:
@@ -21,6 +22,7 @@ private:
 
 private:
   OpenSSL m_Openssl;
+  Decoder m_Decoder;
 
   std::string m_IP;
   uint16_t m_Port = 1998;

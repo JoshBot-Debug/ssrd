@@ -117,15 +117,18 @@ void Client::stream() {
                               bytes.size());
 
       if (type == "resize") {
-        imageWidth.store(Payload::toUInt(Payload::get(1, buffer)),
-                         std::memory_order_relaxed);
-        imageHeight.store(Payload::toUInt(Payload::get(2, buffer)),
-                          std::memory_order_relaxed);
+        int width = Payload::toUInt(Payload::get(1, buffer));
+        int height = Payload::toUInt(Payload::get(2, buffer));
+
+        imageWidth.store(width, std::memory_order_relaxed);
+        imageHeight.store(height, std::memory_order_relaxed);
+
+        m_Decoder.initialize(width, height);
       }
 
       if (type == "stream") {
         std::lock_guard<std::mutex> lock(m_VBufferMut);
-        m_VBuffer = Payload::get(1, buffer);
+        m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
       }
     }
   });

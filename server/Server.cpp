@@ -68,24 +68,27 @@ void Server::remote() {
   if (!m_Remote)
     m_Remote = new Remote();
 
-  m_Remote->onResize([socket = &m_Socket](int width, int height) {
+  m_Remote->onResize([this](int width, int height) {
+    m_Encoder.initialize(width, height);
+
     Payload payload;
     payload.set("resize");
     payload.set(width);
     payload.set(height);
 
-    socket->send(payload.buffer.data(), payload.buffer.size());
+    m_Socket.send(payload.buffer.data(), payload.buffer.size());
   });
 
-  m_Remote->onStream(
-      [remote = m_Remote, socket = &m_Socket](std::vector<uint8_t> buffer) {
-        Payload payload;
-        payload.set("stream");
-        payload.set(buffer.data(), buffer.size());
+  m_Remote->onStream([this](std::vector<uint8_t> raw) {
+    std::vector<uint8_t> buffer = m_Encoder.encode(raw);
 
-        if (socket->send(payload.buffer.data(), payload.buffer.size()) == -1)
-          remote->end();
-      });
+    Payload payload;
+    payload.set("stream");
+    payload.set(buffer.data(), buffer.size());
+
+    if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
+      m_Remote->end();
+  });
 
   LOG("Remote desktop begin");
 

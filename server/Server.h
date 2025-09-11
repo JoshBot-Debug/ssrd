@@ -2,6 +2,7 @@
 
 #include "OpenSSL.h"
 #include "Remote.h"
+#include "Encoder.h"
 #include "Socket.h"
 
 #include <atomic>
@@ -13,6 +14,7 @@ private:
   Remote *m_Remote = nullptr;
   Socket m_Socket;
   OpenSSL m_Openssl;
+  Encoder m_Encoder;
 
   std::atomic<bool> m_Running = true;
 
