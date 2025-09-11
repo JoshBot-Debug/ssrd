@@ -1,14 +1,4 @@
-#include <iostream>
-
-#include "OpenSSL.h"
-#include "Remote.h"
-#include "Socket.h"
-#include "Utility.h"
-
-#include <openssl/rand.h>
 #include <signal.h>
-
-#include "Payload.h"
 
 #include "Server.h"
 
