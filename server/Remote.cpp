@@ -7,6 +7,9 @@
 #include "Keys.h"
 #include "Utility.h"
 
+static double s_PreviousMouseX = 0.0;
+static double s_PreviousMouseY = 0.0;
+
 static XdpKeyState mapState(int action) {
   switch (action) {
   case GLFW_PRESS:
@@ -317,9 +320,6 @@ void Remote::begin() {
       XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
       XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
 
-  // xdp_session_keyboard_key()
-  // xdp_session_pointer_position
-
   g_main_loop_run(m_Data.g.loop);
 }
 
@@ -333,6 +333,29 @@ void Remote::keyboard(int key, int action, int mods) {
 }
 
 void Remote::mouse(double x, double y) {
-  LOG(xdp_session_get_type());
-  xdp_session_pointer_motion(m_Data.g.session, x, y);
+
+  // Mouse motion
+  // {
+  //   int width = m_Data.format.info.raw.size.width;
+  //   int height = m_Data.format.info.raw.size.height;
+
+  //   double deltaX = width * (x - s_PreviousMouseX);
+  //   double deltaY = height * (y - s_PreviousMouseY);
+
+  //   xdp_session_pointer_motion(m_Data.g.session, deltaX, deltaY);
+
+  //   s_PreviousMouseX = x;
+  //   s_PreviousMouseY = y;
+  // }
+
+  if (!m_Data.pw.stream)
+    return;
+
+  int width = m_Data.format.info.raw.size.width;
+  int height = m_Data.format.info.raw.size.height;
+
+  double positionX = width * x;
+  double positionY = height * y;
+
+  xdp_session_pointer_position(m_Data.g.session, m_Data.target_id, positionX, positionY);
 }

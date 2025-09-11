@@ -31,7 +31,7 @@ int Client::initialize(int argc, char *argv[]) {
   }
 
   // Connect to the server
-  m_Socket.connect(m_IP.c_str(), m_Port);
+  socket.connect(m_IP.c_str(), m_Port);
 
   // Authentication
   {
@@ -66,7 +66,7 @@ bool Client::authentication() {
 
     std::vector<uint8_t> buffer = {};
 
-    if (m_Socket.read(buffer) == -1)
+    if (socket.read(buffer) == -1)
       break;
 
     if (!buffer.size())
@@ -81,14 +81,14 @@ bool Client::authentication() {
 
     LOG("Signed random bytes");
 
-    m_Socket.send(signature.data(), signature.size());
+    socket.send(signature.data(), signature.size());
 
     LOG("Sent signature");
 
     while (true) {
       std::vector<uint8_t> buffer = {};
 
-      if (m_Socket.read(buffer) == -1)
+      if (socket.read(buffer) == -1)
         break;
 
       if (!buffer.size())
@@ -109,7 +109,7 @@ void Client::stream() {
     while (m_Running.load()) {
       std::vector<uint8_t> buffer = {};
 
-      if (m_Socket.read(buffer) <= 0)
+      if (socket.read(buffer) <= 0)
         break;
 
       std::vector<uint8_t> bytes = Payload::get(0, buffer);
@@ -117,10 +117,10 @@ void Client::stream() {
                               bytes.size());
 
       if (type == "resize") {
-        m_Width.store(Payload::toUInt(Payload::get(1, buffer)),
-                      std::memory_order_relaxed);
-        m_Height.store(Payload::toUInt(Payload::get(2, buffer)),
-                       std::memory_order_relaxed);
+        imageWidth.store(Payload::toUInt(Payload::get(1, buffer)),
+                         std::memory_order_relaxed);
+        imageHeight.store(Payload::toUInt(Payload::get(2, buffer)),
+                          std::memory_order_relaxed);
       }
 
       if (type == "stream") {
@@ -131,48 +131,92 @@ void Client::stream() {
   });
 }
 
+static void onResize(GLFWwindow *window, int width, int height) {
+  Client *client = static_cast<Client *>(glfwGetWindowUserPointer(window));
+
+  float texWidth =
+      static_cast<float>(client->imageWidth.load(std::memory_order_relaxed));
+  float texHeight =
+      static_cast<float>(client->imageHeight.load(std::memory_order_relaxed));
+
+  float texAspect = texWidth / texHeight;
+  float winAspect = (float)width / (float)height;
+
+  int vpX, vpY, vpW, vpH;
+
+  if (winAspect > texAspect) {
+    vpH = height;
+    vpW = (int)(height * texAspect);
+    vpX = (width - vpW) / 2;
+    vpY = 0;
+  } else {
+    vpW = width;
+    vpH = (int)(width / texAspect);
+    vpX = 0;
+    vpY = (height - vpH) / 2;
+  }
+
+  {
+    std::unique_lock lock(client->viewportMut);
+    client->viewport.x = vpX;
+    client->viewport.y = vpY;
+    client->viewport.w = vpW;
+    client->viewport.h = vpH;
+  }
+
+  glViewport(vpX, vpY, vpW, vpH);
+}
+
+static void onKeyPress(GLFWwindow *window, int key, int scancode, int action,
+                       int mods) {
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
+      return glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+  Client *client = static_cast<Client *>(glfwGetWindowUserPointer(window));
+
+  Payload payload;
+  payload.set("key");
+  payload.set(key);
+  payload.set(action);
+  payload.set(mods);
+
+  client->socket.send(payload.buffer.data(), payload.buffer.size());
+}
+
+static void onMouseMove(GLFWwindow *window, double xpos, double ypos) {
+  Client *client = static_cast<Client *>(glfwGetWindowUserPointer(window));
+
+  double x = 0.0;
+  double y = 0.0;
+
+  // Get NDC mouse coords
+  {
+    std::unique_lock lock(client->viewportMut);
+    auto viewport = client->viewport;
+    x = (static_cast<double>(xpos) - viewport.x) / viewport.w;
+    y = (static_cast<double>(ypos) - viewport.y) / viewport.h;
+    x = std::clamp(x, 0.0, 1.0);
+    y = std::clamp(y, 0.0, 1.0);
+  }
+
+  Payload payload;
+  payload.set("mouse");
+  payload.set(x);
+  payload.set(y);
+
+  client->socket.send(payload.buffer.data(), payload.buffer.size());
+}
+
 void Client::window() {
   m_WindowThread = std::thread([this]() {
     Window w;
 
-    static double prevMouseX = 0;
-    static double prevMouseY = 0;
-
     w.initialize({
-        .data = &m_Socket,
-        .onKeyPress =
-            [](GLFWwindow *window, int key, int scancode, int action,
-               int mods) {
-              if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-                if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
-                  return glfwSetWindowShouldClose(window, GLFW_TRUE);
-
-              Socket *socket =
-                  static_cast<Socket *>(glfwGetWindowUserPointer(window));
-
-              Payload payload;
-              payload.set("key");
-              payload.set(key);
-              payload.set(action);
-              payload.set(mods);
-
-              socket->send(payload.buffer.data(), payload.buffer.size());
-            },
-        .onMouseMove =
-            [](GLFWwindow *window, double xpos, double ypos) {
-              Socket *socket =
-                  static_cast<Socket *>(glfwGetWindowUserPointer(window));
-
-              Payload payload;
-              payload.set("mouse");
-              payload.set(xpos - prevMouseX);
-              payload.set(ypos - prevMouseY);
-
-              socket->send(payload.buffer.data(), payload.buffer.size());
-
-              prevMouseX = xpos;
-              prevMouseY = ypos;
-            },
+        .data = this,
+        .onResize = onResize,
+        .onKeyPress = onKeyPress,
+        .onMouseMove = onMouseMove,
     });
 
     while (m_Running.load() && !w.shouldClose()) {
@@ -181,8 +225,8 @@ void Client::window() {
         w.setBuffer(m_VBuffer);
       }
 
-      uint32_t width = m_Width.load(std::memory_order_relaxed);
-      uint32_t height = m_Height.load(std::memory_order_relaxed);
+      uint32_t width = imageWidth.load(std::memory_order_relaxed);
+      uint32_t height = imageHeight.load(std::memory_order_relaxed);
       w.present(width, height);
     }
 

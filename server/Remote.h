@@ -77,6 +77,6 @@ public:
   void end();
 
   void keyboard(int key, int action, int mods);
-  
+
   void mouse(double x, double y);
 };

@@ -45,6 +45,7 @@ private:
 
   struct Init {
     void *data = nullptr;
+    GLFWframebuffersizefun onResize = nullptr;
     GLFWkeyfun onKeyPress = nullptr;
     GLFWcursorposfun onMouseMove = nullptr;
   };
@@ -60,6 +61,8 @@ private:
 
   std::vector<uint8_t> m_Buffer = {};
 
+  Init m_Init;
+
 public:
   Window() = default;
 
@@ -74,6 +77,8 @@ public:
   }
 
   void initialize(Init init) {
+    m_Init = init;
+
     glfwSetErrorCallback(errorCallback);
 
     if (!glfwInit())
@@ -85,12 +90,14 @@ public:
     GLFWmonitor *monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
-    m_Window =
-        glfwCreateWindow(mode->width, mode->height, "SSRD", nullptr, nullptr);
+    // m_Window = glfwCreateWindow(mode->width, mode->height, "ssrd", monitor,
+    // nullptr);
+    m_Window = glfwCreateWindow(800, 600, "ssrd", nullptr, nullptr);
 
     glfwSetWindowUserPointer(m_Window, init.data);
     glfwSetKeyCallback(m_Window, init.onKeyPress);
     glfwSetCursorPosCallback(m_Window, init.onMouseMove);
+    glfwSetFramebufferSizeCallback(m_Window, init.onResize);
 
     if (!m_Window) {
       glfwTerminate();
@@ -157,18 +164,24 @@ public:
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, NULL);
 
+    //  Trigger a resize, aspect ratio may have changed
+    {
+      int w, h;
+      glfwGetFramebufferSize(m_Window, &w, &h);
+      m_Init.onResize(m_Window, w, h);
+    }
+
     return true;
   }
 
   void present(uint32_t width, uint32_t height) {
-    if (resize(width, height) || !m_Buffer.size())
-      return;
+    resize(width, height);
 
     glBindTexture(GL_TEXTURE_2D, m_Texture);
+
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB,
                     GL_UNSIGNED_BYTE, m_Buffer.data());
 
-    glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(m_Program);
     glBindTexture(GL_TEXTURE_2D, m_Texture);
