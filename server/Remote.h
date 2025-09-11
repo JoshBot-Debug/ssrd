@@ -79,4 +79,8 @@ public:
   void keyboard(int key, int action, int mods);
 
   void mouse(double x, double y);
+
+  void mouseButton(int button, int action, int mods);
+  
+  void mouseScroll(double x, double y);
 };

@@ -201,9 +201,33 @@ static void onMouseMove(GLFWwindow *window, double xpos, double ypos) {
   }
 
   Payload payload;
-  payload.set("mouse");
+  payload.set("mouse-move");
   payload.set(x);
   payload.set(y);
+
+  client->socket.send(payload.buffer.data(), payload.buffer.size());
+}
+
+static void onMouseButton(GLFWwindow *window, int button, int action,
+                          int mods) {
+  Client *client = static_cast<Client *>(glfwGetWindowUserPointer(window));
+
+  Payload payload;
+  payload.set("mouse-button");
+  payload.set(button);
+  payload.set(action);
+  payload.set(mods);
+
+  client->socket.send(payload.buffer.data(), payload.buffer.size());
+}
+
+static void onScroll(GLFWwindow *window, double xoffset, double yoffset) {
+  Client *client = static_cast<Client *>(glfwGetWindowUserPointer(window));
+
+  Payload payload;
+  payload.set("mouse-scroll");
+  payload.set(xoffset);
+  payload.set(yoffset);
 
   client->socket.send(payload.buffer.data(), payload.buffer.size());
 }
@@ -217,6 +241,8 @@ void Client::window() {
         .onResize = onResize,
         .onKeyPress = onKeyPress,
         .onMouseMove = onMouseMove,
+        .onMouseButton = onMouseButton,
+        .onScroll = onScroll,
     });
 
     while (m_Running.load() && !w.shouldClose()) {

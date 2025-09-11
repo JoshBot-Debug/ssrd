@@ -48,6 +48,8 @@ private:
     GLFWframebuffersizefun onResize = nullptr;
     GLFWkeyfun onKeyPress = nullptr;
     GLFWcursorposfun onMouseMove = nullptr;
+    GLFWmousebuttonfun onMouseButton = nullptr;
+    GLFWscrollfun onScroll = nullptr;
   };
 
 private:
@@ -98,6 +100,8 @@ public:
     glfwSetKeyCallback(m_Window, init.onKeyPress);
     glfwSetCursorPosCallback(m_Window, init.onMouseMove);
     glfwSetFramebufferSizeCallback(m_Window, init.onResize);
+    glfwSetMouseButtonCallback(m_Window, init.onMouseButton);
+    glfwSetScrollCallback(m_Window, init.onScroll);
 
     if (!m_Window) {
       glfwTerminate();

@@ -10,7 +10,7 @@
 static double s_PreviousMouseX = 0.0;
 static double s_PreviousMouseY = 0.0;
 
-static XdpKeyState mapState(int action) {
+static XdpKeyState GLFWToXDPKeyState(int action) {
   switch (action) {
   case GLFW_PRESS:
     return XDP_KEY_PRESSED;
@@ -20,6 +20,17 @@ static XdpKeyState mapState(int action) {
     return XDP_KEY_PRESSED; // no xdp equivilant
   default:
     return XDP_KEY_RELEASED;
+  }
+}
+
+static XdpButtonState GLFWToXDPMouseButtonState(int action) {
+  switch (action) {
+  case GLFW_RELEASE:
+    return XDP_BUTTON_RELEASED;
+  case GLFW_PRESS:
+    return XDP_BUTTON_PRESSED;
+  default:
+    return XDP_BUTTON_RELEASED;
   }
 }
 
@@ -329,7 +340,8 @@ void Remote::end() {
 }
 
 void Remote::keyboard(int key, int action, int mods) {
-  xdp_session_keyboard_key(m_Data.g.session, TRUE, key, mapState(action));
+  xdp_session_keyboard_key(m_Data.g.session, TRUE, key,
+                           GLFWToXDPKeyState(action));
 }
 
 void Remote::mouse(double x, double y) {
@@ -357,5 +369,23 @@ void Remote::mouse(double x, double y) {
   double positionX = width * x;
   double positionY = height * y;
 
-  // xdp_session_pointer_position(m_Data.g.session, m_Data.target_id, positionX, positionY);
+  xdp_session_pointer_position(m_Data.g.session, m_Data.target_id, positionX,
+                               positionY);
+}
+
+void Remote::mouseButton(int button, int action, int mods) {
+  xdp_session_pointer_button(m_Data.g.session, button,
+                             GLFWToXDPMouseButtonState(action));
+}
+
+void Remote::mouseScroll(double x, double y) {
+  if (x > 0.0)
+    xdp_session_pointer_axis_discrete(
+        m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_HORIZONTAL_SCROLL,
+        static_cast<int>(x));
+
+  if (y > 0.0)
+    xdp_session_pointer_axis_discrete(m_Data.g.session,
+                                      XdpDiscreteAxis::XDP_AXIS_VERTICAL_SCROLL,
+                                      static_cast<int>(y));
 }
