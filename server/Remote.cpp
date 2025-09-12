@@ -205,7 +205,7 @@ static int glfwToXdpKey(int key) {
     return KEY_ESC;
 
   default:
-    return -1; // unknown key
+    return key; // unknown key
   }
 }
 
@@ -531,28 +531,27 @@ void Remote::keyboard(int key, int action, int mods) {
   // Press modifiers
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTCTRL, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL, XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTSHIFT, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT, XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTALT, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT, XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTMETA, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA, XDP_KEY_PRESSED);
   }
 
-  xdp_session_keyboard_key(m_Data.g.session, TRUE, glfwToXdpKey(key),
-                           GLFWToXDPKeyState(action));
+  xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(key), GLFWToXDPKeyState(action));
 
   // Release modifiers
   if (action == GLFW_RELEASE) {
     if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTCTRL, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL, XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTSHIFT, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT, XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTALT, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT, XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTMETA, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA, XDP_KEY_RELEASED);
   }
 }
 

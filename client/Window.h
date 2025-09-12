@@ -92,9 +92,9 @@ public:
     GLFWmonitor *monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
-    // m_Window = glfwCreateWindow(mode->width, mode->height, "ssrd", monitor,
-    // nullptr);
-    m_Window = glfwCreateWindow(800, 600, "ssrd", nullptr, nullptr);
+    m_Window = glfwCreateWindow(mode->width, mode->height, "ssrd", monitor,
+    nullptr);
+    // m_Window = glfwCreateWindow(800, 600, "ssrd", nullptr, nullptr);
 
     glfwSetWindowUserPointer(m_Window, init.data);
     glfwSetKeyCallback(m_Window, init.onKeyPress);
