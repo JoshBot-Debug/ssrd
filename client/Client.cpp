@@ -128,8 +128,8 @@ void Client::stream() {
 
       if (type == "stream") {
         std::lock_guard<std::mutex> lock(m_VBufferMut);
-        // m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
-        m_VBuffer = Payload::get(1, buffer);
+        m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
+        // m_VBuffer = Payload::get(1, buffer);
       }
     }
   });
@@ -230,9 +230,19 @@ static void onScroll(GLFWwindow *window, double xoffset, double yoffset) {
 
   Payload payload;
   payload.set("mouse-scroll");
-  payload.set(xoffset);
-  payload.set(yoffset);
 
+  bool scrollHorizontal =
+      glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+      glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+
+  if (scrollHorizontal) {
+    payload.set(static_cast<int>(yoffset));
+    payload.set(0);
+  } else {
+    payload.set(static_cast<int>(xoffset));
+    payload.set(static_cast<int>(yoffset));
+  }
+  
   client->socket.send(payload.buffer.data(), payload.buffer.size());
 }
 

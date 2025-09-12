@@ -82,5 +82,5 @@ public:
 
   void mouseButton(int button, int action, int mods);
   
-  void mouseScroll(double x, double y);
+  void mouseScroll(int x, int y);
 };

@@ -16,6 +16,7 @@ private:
   struct Viewport {
     int x = 0;
     int y = 0;
+    
     int w = 0;
     int h = 0;
   };
@@ -25,6 +26,7 @@ private:
   Decoder m_Decoder;
 
   std::string m_IP;
+  
   uint16_t m_Port = 1998;
   std::string m_Identity;
 

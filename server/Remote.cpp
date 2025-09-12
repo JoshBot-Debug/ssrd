@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <linux/input-event-codes.h>
 #include <spa/debug/types.h>
 
 #include "Keys.h"
@@ -32,14 +33,190 @@ static XdpButtonState glfwToXdpMouseButtonState(int action) {
   }
 }
 
+#include <GLFW/glfw3.h>
+#include <linux/input-event-codes.h>
+
+static int glfwToXdpKey(int key) {
+  switch (key) {
+  // Letters
+  case GLFW_KEY_A:
+    return KEY_A;
+  case GLFW_KEY_B:
+    return KEY_B;
+  case GLFW_KEY_C:
+    return KEY_C;
+  case GLFW_KEY_D:
+    return KEY_D;
+  case GLFW_KEY_E:
+    return KEY_E;
+  case GLFW_KEY_F:
+    return KEY_F;
+  case GLFW_KEY_G:
+    return KEY_G;
+  case GLFW_KEY_H:
+    return KEY_H;
+  case GLFW_KEY_I:
+    return KEY_I;
+  case GLFW_KEY_J:
+    return KEY_J;
+  case GLFW_KEY_K:
+    return KEY_K;
+  case GLFW_KEY_L:
+    return KEY_L;
+  case GLFW_KEY_M:
+    return KEY_M;
+  case GLFW_KEY_N:
+    return KEY_N;
+  case GLFW_KEY_O:
+    return KEY_O;
+  case GLFW_KEY_P:
+    return KEY_P;
+  case GLFW_KEY_Q:
+    return KEY_Q;
+  case GLFW_KEY_R:
+    return KEY_R;
+  case GLFW_KEY_S:
+    return KEY_S;
+  case GLFW_KEY_T:
+    return KEY_T;
+  case GLFW_KEY_U:
+    return KEY_U;
+  case GLFW_KEY_V:
+    return KEY_V;
+  case GLFW_KEY_W:
+    return KEY_W;
+  case GLFW_KEY_X:
+    return KEY_X;
+  case GLFW_KEY_Y:
+    return KEY_Y;
+  case GLFW_KEY_Z:
+    return KEY_Z;
+
+  // Numbers
+  case GLFW_KEY_0:
+    return KEY_0;
+  case GLFW_KEY_1:
+    return KEY_1;
+  case GLFW_KEY_2:
+    return KEY_2;
+  case GLFW_KEY_3:
+    return KEY_3;
+  case GLFW_KEY_4:
+    return KEY_4;
+  case GLFW_KEY_5:
+    return KEY_5;
+  case GLFW_KEY_6:
+    return KEY_6;
+  case GLFW_KEY_7:
+    return KEY_7;
+  case GLFW_KEY_8:
+    return KEY_8;
+  case GLFW_KEY_9:
+    return KEY_9;
+
+  // Punctuation
+  case GLFW_KEY_SPACE:
+    return KEY_SPACE;
+  case GLFW_KEY_APOSTROPHE:
+    return KEY_APOSTROPHE;
+  case GLFW_KEY_COMMA:
+    return KEY_COMMA;
+  case GLFW_KEY_MINUS:
+    return KEY_MINUS;
+  case GLFW_KEY_PERIOD:
+    return KEY_DOT;
+  case GLFW_KEY_SLASH:
+    return KEY_SLASH;
+  case GLFW_KEY_SEMICOLON:
+    return KEY_SEMICOLON;
+  case GLFW_KEY_EQUAL:
+    return KEY_EQUAL;
+  case GLFW_KEY_LEFT_BRACKET:
+    return KEY_LEFTBRACE;
+  case GLFW_KEY_BACKSLASH:
+    return KEY_BACKSLASH;
+  case GLFW_KEY_RIGHT_BRACKET:
+    return KEY_RIGHTBRACE;
+  case GLFW_KEY_GRAVE_ACCENT:
+    return KEY_GRAVE;
+
+  // Modifiers
+  case GLFW_KEY_LEFT_SHIFT:
+    return KEY_LEFTSHIFT;
+  case GLFW_KEY_RIGHT_SHIFT:
+    return KEY_RIGHTSHIFT;
+  case GLFW_KEY_LEFT_CONTROL:
+    return KEY_LEFTCTRL;
+  case GLFW_KEY_RIGHT_CONTROL:
+    return KEY_RIGHTCTRL;
+  case GLFW_KEY_LEFT_ALT:
+    return KEY_LEFTALT;
+  case GLFW_KEY_RIGHT_ALT:
+    return KEY_RIGHTALT;
+  case GLFW_KEY_LEFT_SUPER:
+    return KEY_LEFTMETA;
+  case GLFW_KEY_RIGHT_SUPER:
+    return KEY_RIGHTMETA;
+
+  // Arrows
+  case GLFW_KEY_UP:
+    return KEY_UP;
+  case GLFW_KEY_DOWN:
+    return KEY_DOWN;
+  case GLFW_KEY_LEFT:
+    return KEY_LEFT;
+  case GLFW_KEY_RIGHT:
+    return KEY_RIGHT;
+
+  // Function keys
+  case GLFW_KEY_F1:
+    return KEY_F1;
+  case GLFW_KEY_F2:
+    return KEY_F2;
+  case GLFW_KEY_F3:
+    return KEY_F3;
+  case GLFW_KEY_F4:
+    return KEY_F4;
+  case GLFW_KEY_F5:
+    return KEY_F5;
+  case GLFW_KEY_F6:
+    return KEY_F6;
+  case GLFW_KEY_F7:
+    return KEY_F7;
+  case GLFW_KEY_F8:
+    return KEY_F8;
+  case GLFW_KEY_F9:
+    return KEY_F9;
+  case GLFW_KEY_F10:
+    return KEY_F10;
+  case GLFW_KEY_F11:
+    return KEY_F11;
+  case GLFW_KEY_F12:
+    return KEY_F12;
+
+  // Enter, Backspace, Tab, Escape
+  case GLFW_KEY_ENTER:
+    return KEY_ENTER;
+  case GLFW_KEY_BACKSPACE:
+    return KEY_BACKSPACE;
+  case GLFW_KEY_TAB:
+    return KEY_TAB;
+  case GLFW_KEY_ESCAPE:
+    return KEY_ESC;
+
+  default:
+    return -1; // unknown key
+  }
+}
+
 static int glfwToXdpMouseButton(int glfwButton) {
   switch (glfwButton) {
   case GLFW_MOUSE_BUTTON_LEFT:
-    return 1;
+    return BTN_LEFT;
   case GLFW_MOUSE_BUTTON_MIDDLE:
-    return 2;
+    return BTN_MIDDLE;
   case GLFW_MOUSE_BUTTON_RIGHT:
-    return 3;
+    return BTN_RIGHT;
   default:
     return 0; // Unknown
   }
@@ -351,8 +528,32 @@ void Remote::end() {
 }
 
 void Remote::keyboard(int key, int action, int mods) {
-  xdp_session_keyboard_key(m_Data.g.session, TRUE, key,
+  // Press modifiers
+  if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+    if (mods & GLFW_MOD_CONTROL)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTCTRL, XDP_KEY_PRESSED);
+    if (mods & GLFW_MOD_SHIFT)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTSHIFT, XDP_KEY_PRESSED);
+    if (mods & GLFW_MOD_ALT)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTALT, XDP_KEY_PRESSED);
+    if (mods & GLFW_MOD_SUPER)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTMETA, XDP_KEY_PRESSED);
+  }
+
+  xdp_session_keyboard_key(m_Data.g.session, TRUE, glfwToXdpKey(key),
                            GLFWToXDPKeyState(action));
+
+  // Release modifiers
+  if (action == GLFW_RELEASE) {
+    if (mods & GLFW_MOD_CONTROL)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTCTRL, XDP_KEY_RELEASED);
+    if (mods & GLFW_MOD_SHIFT)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTSHIFT, XDP_KEY_RELEASED);
+    if (mods & GLFW_MOD_ALT)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTALT, XDP_KEY_RELEASED);
+    if (mods & GLFW_MOD_SUPER)
+      xdp_session_keyboard_key(m_Data.g.session, TRUE, KEY_LEFTMETA, XDP_KEY_RELEASED);
+  }
 }
 
 void Remote::mouse(double x, double y) {
@@ -374,14 +575,13 @@ void Remote::mouseButton(int button, int action, int mods) {
                              glfwToXdpMouseButtonState(action));
 }
 
-void Remote::mouseScroll(double x, double y) {
-  if (x != 0.0)
+void Remote::mouseScroll(int x, int y) {
+  // Swap axes, XDP interprets them inverted
+  if (y != 0)
     xdp_session_pointer_axis_discrete(
-        m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_HORIZONTAL_SCROLL,
-        static_cast<int>(x));
+        m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_HORIZONTAL_SCROLL, -y);
 
-  if (y != 0.0)
-    xdp_session_pointer_axis_discrete(m_Data.g.session,
-                                      XdpDiscreteAxis::XDP_AXIS_VERTICAL_SCROLL,
-                                      static_cast<int>(y));
+  if (x != 0)
+    xdp_session_pointer_axis_discrete(
+        m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_VERTICAL_SCROLL, -x);
 }

@@ -80,8 +80,8 @@ void Server::remote() {
   });
 
   m_Remote->onStream([this](std::vector<uint8_t> raw) {
-    // std::vector<uint8_t> buffer = m_Encoder.encode(raw);
-    std::vector<uint8_t> buffer = raw;
+    std::vector<uint8_t> buffer = m_Encoder.encode(raw);
+    // std::vector<uint8_t> buffer = raw;
 
     Payload payload;
     payload.set("stream");
@@ -134,8 +134,8 @@ void Server::remote() {
       }
 
       if (type == "mouse-scroll") {
-        auto x = Payload::toDouble(Payload::get(1, buffer));
-        auto y = Payload::toDouble(Payload::get(2, buffer));
+        auto x = Payload::toInt(Payload::get(1, buffer));
+        auto y = Payload::toInt(Payload::get(2, buffer));
 
         LOG("mouse-scroll", x, y);
         m_Remote->mouseScroll(x, y);
