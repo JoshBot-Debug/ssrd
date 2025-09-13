@@ -1,7 +1,7 @@
 # SSRD
 
 **SSRD** (**S**ecure **S**ocket **R**emote **D**esktop) is a lightweight remote desktop solution with end-to-end encrypted communication over sockets.  
-This project is still in development but already functional enough to be tested.
+This project is still in development but already functional enough to be tested.  
 
 ---
 
@@ -11,6 +11,22 @@ This project is still in development but already functional enough to be tested.
 - Client/Server architecture.  
 - Easy setup with CMake.  
 - Minimal dependencies.  
+
+---
+
+## 📦 Requirements
+
+SSRD depends on the following libraries. **The same versions of FFmpeg libraries must be installed on both the client and server**, since shared libraries are used.  
+
+- **FFmpeg**
+  - `libavcodec`
+  - `libavutil`
+  - `libswscale`
+- **PipeWire**
+- **libportal** (with GTK4 support)  
+- **OpenSSL**
+- **OpenGL**
+- **GLFW3**
 
 ---
 
@@ -62,8 +78,10 @@ Copy the generated **public.pem** into the server machine under:
 From your client machine:  
 
 ```bash
-./ssrd-client -h <server-ip-address>
+./ssrd-client -h <server-ip-address> -i /path/to/private.pem
 ```
+
+> If `~/.ssrd/private.pem` exists on the client, you don't need to pass `-i /path/to/private.pem`
 
 ---
 
@@ -84,7 +102,7 @@ ssrd/
 ## ⚠️ Notes
 
 - This project is **not production-ready** yet.  
-- Error handling and additional security layers are still being added/improved.  
+- Error handling and additional security layers are still being improved.  
 - Contributions and feedback are welcome.  
 
 ---
