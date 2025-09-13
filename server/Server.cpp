@@ -50,6 +50,7 @@ bool Server::authenticate() {
     if (signature.size()) {
       LOG("Verifing signature");
 
+      /// TODO: Need to make this an authorized keys, like ssh
       EVP_PKEY *publicKey =
           m_Openssl.loadPublicKey((HOME_DIR + "/.ssrd/public.pem").c_str());
 
