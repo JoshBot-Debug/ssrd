@@ -38,6 +38,10 @@ static XdpButtonState glfwToXdpMouseButtonState(int action) {
 
 static int glfwToXdpKey(int key) {
   switch (key) {
+  // Unknown
+  case GLFW_KEY_UNKNOWN:
+    return KEY_UNKNOWN;
+
   // Letters
   case GLFW_KEY_A:
     return KEY_A;
@@ -92,7 +96,7 @@ static int glfwToXdpKey(int key) {
   case GLFW_KEY_Z:
     return KEY_Z;
 
-  // Numbers
+  // Top-row numbers
   case GLFW_KEY_0:
     return KEY_0;
   case GLFW_KEY_1:
@@ -113,6 +117,28 @@ static int glfwToXdpKey(int key) {
     return KEY_8;
   case GLFW_KEY_9:
     return KEY_9;
+
+  // Keypad numbers
+  case GLFW_KEY_KP_0:
+    return KEY_KP0;
+  case GLFW_KEY_KP_1:
+    return KEY_KP1;
+  case GLFW_KEY_KP_2:
+    return KEY_KP2;
+  case GLFW_KEY_KP_3:
+    return KEY_KP3;
+  case GLFW_KEY_KP_4:
+    return KEY_KP4;
+  case GLFW_KEY_KP_5:
+    return KEY_KP5;
+  case GLFW_KEY_KP_6:
+    return KEY_KP6;
+  case GLFW_KEY_KP_7:
+    return KEY_KP7;
+  case GLFW_KEY_KP_8:
+    return KEY_KP8;
+  case GLFW_KEY_KP_9:
+    return KEY_KP9;
 
   // Punctuation
   case GLFW_KEY_SPACE:
@@ -157,6 +183,8 @@ static int glfwToXdpKey(int key) {
     return KEY_LEFTMETA;
   case GLFW_KEY_RIGHT_SUPER:
     return KEY_RIGHTMETA;
+  case GLFW_KEY_MENU:
+    return KEY_MENU;
 
   // Arrows
   case GLFW_KEY_UP:
@@ -193,8 +221,32 @@ static int glfwToXdpKey(int key) {
     return KEY_F11;
   case GLFW_KEY_F12:
     return KEY_F12;
+  case GLFW_KEY_F13:
+    return KEY_F13;
+  case GLFW_KEY_F14:
+    return KEY_F14;
+  case GLFW_KEY_F15:
+    return KEY_F15;
+  case GLFW_KEY_F16:
+    return KEY_F16;
+  case GLFW_KEY_F17:
+    return KEY_F17;
+  case GLFW_KEY_F18:
+    return KEY_F18;
+  case GLFW_KEY_F19:
+    return KEY_F19;
+  case GLFW_KEY_F20:
+    return KEY_F20;
+  case GLFW_KEY_F21:
+    return KEY_F21;
+  case GLFW_KEY_F22:
+    return KEY_F22;
+  case GLFW_KEY_F23:
+    return KEY_F23;
+  case GLFW_KEY_F24:
+    return KEY_F24;
 
-  // Enter, Backspace, Tab, Escape
+  // Special keys
   case GLFW_KEY_ENTER:
     return KEY_ENTER;
   case GLFW_KEY_BACKSPACE:
@@ -203,9 +255,47 @@ static int glfwToXdpKey(int key) {
     return KEY_TAB;
   case GLFW_KEY_ESCAPE:
     return KEY_ESC;
+  case GLFW_KEY_CAPS_LOCK:
+    return KEY_CAPSLOCK;
+  case GLFW_KEY_SCROLL_LOCK:
+    return KEY_SCROLLLOCK;
+  case GLFW_KEY_NUM_LOCK:
+    return KEY_NUMLOCK;
+  case GLFW_KEY_PRINT_SCREEN:
+    return KEY_PRINT;
+  case GLFW_KEY_PAUSE:
+    return KEY_BREAK;
+  case GLFW_KEY_INSERT:
+    return KEY_INSERT;
+  case GLFW_KEY_DELETE:
+    return KEY_DELETE;
+  case GLFW_KEY_HOME:
+    return KEY_HOME;
+  case GLFW_KEY_END:
+    return KEY_END;
+  case GLFW_KEY_PAGE_UP:
+    return KEY_PAGEUP;
+  case GLFW_KEY_PAGE_DOWN:
+    return KEY_PAGEDOWN;
+
+  // Keypad operators & special keys
+  case GLFW_KEY_KP_DECIMAL:
+    return KEY_KPDOT;
+  case GLFW_KEY_KP_DIVIDE:
+    return KEY_KPSLASH;
+  case GLFW_KEY_KP_MULTIPLY:
+    return KEY_KPASTERISK;
+  case GLFW_KEY_KP_SUBTRACT:
+    return KEY_KPMINUS;
+  case GLFW_KEY_KP_ADD:
+    return KEY_KPPLUS;
+  case GLFW_KEY_KP_ENTER:
+    return KEY_KPENTER;
+  case GLFW_KEY_KP_EQUAL:
+  return KEY_KPEQUAL;
 
   default:
-    return key; // unknown key
+    return KEY_UNKNOWN;
   }
 }
 
@@ -531,27 +621,36 @@ void Remote::keyboard(int key, int action, int mods) {
   // Press modifiers
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL,
+                               XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT,
+                               XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT,
+                               XDP_KEY_PRESSED);
     if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA, XDP_KEY_PRESSED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA,
+                               XDP_KEY_PRESSED);
   }
 
-  xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(key), GLFWToXDPKeyState(action));
+  xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(key),
+                           GLFWToXDPKeyState(action));
 
   // Release modifiers
   if (action == GLFW_RELEASE) {
     if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL,
+                               XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT,
+                               XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT,
+                               XDP_KEY_RELEASED);
     if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA, XDP_KEY_RELEASED);
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA,
+                               XDP_KEY_RELEASED);
   }
 }
 
