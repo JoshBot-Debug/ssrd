@@ -80,12 +80,32 @@ void Server::remote() {
     m_Socket.send(payload.buffer.data(), payload.buffer.size());
   });
 
-  m_Remote->onStream([this](std::vector<uint8_t> raw) {
+  m_Remote->onStreamVideo([this](std::vector<uint8_t> raw) {
     std::vector<uint8_t> buffer = m_Encoder.encode(raw);
-    // std::vector<uint8_t> buffer = raw;
+
+    if (buffer.size() == 0)
+      return;
 
     Payload payload;
-    payload.set("stream");
+    payload.set("stream-video");
+    payload.set(buffer.data(), buffer.size());
+
+    if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
+      m_Remote->end();
+  });
+
+  m_Remote->onStreamAudio([this](const Chunk &chunk) {
+    auto resampled =
+        m_AudioEncoder.LinearResample(chunk.buffer, chunk.sampleRate, 24000);
+
+    std::vector<uint8_t> buffer = m_AudioEncoder.Encode(
+        resampled.data(), resampled.size(), 960);
+
+    if (buffer.size() == 0)
+      return;
+
+    Payload payload;
+    payload.set("stream-audio");
     payload.set(buffer.data(), buffer.size());
 
     if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)

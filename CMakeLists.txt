@@ -36,8 +36,23 @@ endif()
 # === Source Files ===
 file(GLOB_RECURSE COMMON_SRC ${CMAKE_SOURCE_DIR}/common/*.cpp)
 file(GLOB_RECURSE CLIENT_SRC ${CMAKE_SOURCE_DIR}/client/*.cpp)
-file(GLOB_RECURSE SERVER_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
+file(GLOB_RECURSE SERVER_ALL_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
 file(GLOB_RECURSE GLAD_SRC ${CMAKE_SOURCE_DIR}/glad/*.c)
+
+set(SERVER_SRC "")
+foreach(f ${SERVER_ALL_SRC})
+  if(f MATCHES "Windows\\.cpp$")
+    if(WIN32)
+      list(APPEND SERVER_SRC ${f})
+    endif()
+  elseif(f MATCHES "Linux\\.cpp$")
+    if(UNIX AND NOT APPLE)
+      list(APPEND SERVER_SRC ${f})
+    endif()
+  else()
+    list(APPEND SERVER_SRC ${f})
+  endif()
+endforeach()
 
 add_executable(ssrd-client ${CLIENT_SRC} ${COMMON_SRC} ${GLAD_SRC})
 add_executable(ssrd-server ${SERVER_SRC} ${COMMON_SRC})
@@ -67,6 +82,8 @@ pkg_check_modules(GLFW3 REQUIRED glfw3)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
+pkg_check_modules(OPUS REQUIRED opus)
+pkg_check_modules(PORT_AUDIO REQUIRED portaudio-2.0)
 
 message(STATUS "PIPEWIRE_LIBRARIES = ${PIPEWIRE_LIBRARIES}")
 message(STATUS "PIPEWIRE_INCLUDE_DIRS = ${PIPEWIRE_INCLUDE_DIRS}")
@@ -83,6 +100,8 @@ message(STATUS "AVUTIL_LIBRARIES = ${AVUTIL_LIBRARIES}")
 message(STATUS "AVUTIL_INCLUDE_DIRS = ${AVUTIL_INCLUDE_DIRS}")
 message(STATUS "SWSCALE_LIBRARIES = ${SWSCALE_LIBRARIES}")
 message(STATUS "SWSCALE_INCLUDE_DIRS = ${SWSCALE_INCLUDE_DIRS}")
+message(STATUS "OPUS_LIBRARIES = ${OPUS_LIBRARIES}")
+message(STATUS "PORT_AUDIO_LIBRARIES = ${PORT_AUDIO_LIBRARIES}")
 
 # === Libraries ===
 # Common
@@ -107,6 +126,8 @@ target_link_libraries(ssrd-client PRIVATE
   ${AVCODEC_LIBRARIES}
   ${SWSCALE_LIBRARIES}
   ${AVUTIL_LIBRARIES}
+  ${OPUS_LIBRARIES}
+  ${PORT_AUDIO_LIBRARIES}
 )
 
 target_include_directories(ssrd-client PRIVATE 
@@ -122,6 +143,7 @@ target_link_libraries(ssrd-server PRIVATE
   ${AVCODEC_LIBRARIES}
   ${SWSCALE_LIBRARIES}
   ${AVUTIL_LIBRARIES}
+  ${OPUS_LIBRARIES}
 )
 
 # === Include Directories ===

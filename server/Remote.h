@@ -6,17 +6,31 @@
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/param/audio/format-utils.h>
+
+struct Chunk {
+  std::vector<float> &buffer;
+  uint32_t frames;
+  uint32_t sampleRate;
+  uint32_t channels;
+  uint32_t bits;
+};
 
 class Remote {
 private:
+  struct Stream {
+    pw_stream *stream = nullptr;
+    spa_hook streamListener;
+    pw_stream_events streamEvents{};
+  };
+
   struct PwData {
     pw_loop *loop = nullptr;
     pw_context *context = nullptr;
     pw_core *core = nullptr;
-    pw_stream *stream = nullptr;
-    spa_hook stream_listener;
-    pw_stream_events streamEvents{};
     GSourceFuncs pipewireSourceFuncs{};
+    Stream videoStream;
+    Stream audioStream;
   };
 
   struct GlibData {
@@ -31,14 +45,16 @@ private:
     GlibData g{};
     PwData pw{};
 
-    int pw_fd = 0;
-    guint32 target_id = 0;
+    int pwFd = 0;
+    guint32 targetId = 0;
 
-    spa_video_info format{};
+    spa_video_info videoFormat{};
+    spa_audio_info audioFormat{};
 
     std::vector<uint8_t> framebuffer = {};
     std::function<void(int width, int height)> onResize = nullptr;
-    std::function<void(std::vector<uint8_t> buffer)> onStream = nullptr;
+    std::function<void(std::vector<uint8_t> buffer)> onStreamVideo = nullptr;
+    std::function<void(const Chunk &chunk)> onStreamAudio = nullptr;
   };
 
   struct PipewireSource {
@@ -52,13 +68,18 @@ private:
   static void onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
                                    gpointer userData);
 
-  static void onSessionStart(GObject *source_object, GAsyncResult *res,
+  static void onSessionStart(GObject *sourceObject, GAsyncResult *res,
                              gpointer userData);
 
-  static void onStreamParamsChange(void *userData, uint32_t id,
-                                   const struct spa_pod *param);
+  static void onVideoStreamParamsChange(void *userData, uint32_t id,
+                                        const struct spa_pod *param);
 
-  static void onStreamProcess(void *userData);
+  static void onVideoStreamProcess(void *userData);
+
+  static void onAudioStreamParamsChange(void *userData, uint32_t id,
+                                        const struct spa_pod *param);
+
+  static void onAudioStreamProcess(void *userData);
 
 private:
   Data m_Data;
@@ -67,8 +88,9 @@ public:
   Remote();
   ~Remote();
 
-  void
-  onStream(const std::function<void(std::vector<uint8_t> buffer)> &callback);
+  void onStreamVideo(
+      const std::function<void(std::vector<uint8_t> buffer)> &callback);
+  void onStreamAudio(const std::function<void(const Chunk &chunk)> &callback);
 
   void onResize(const std::function<void(int width, int height)> &callback);
 
@@ -81,6 +103,6 @@ public:
   void mouse(double x, double y);
 
   void mouseButton(int button, int action, int mods);
-  
+
   void mouseScroll(int x, int y);
 };

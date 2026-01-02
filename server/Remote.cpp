@@ -1,5 +1,6 @@
 #include "Remote.h"
 
+#include <cstring>
 #include <iostream>
 
 #include <linux/input-event-codes.h>
@@ -10,6 +11,28 @@
 
 static double s_PreviousMouseX = 0.0;
 static double s_PreviousMouseY = 0.0;
+
+static inline uint32_t spa_audio_format_depth(enum spa_audio_format fmt) {
+  switch (fmt) {
+  case SPA_AUDIO_FORMAT_S8:
+  case SPA_AUDIO_FORMAT_U8:
+    return 8;
+  case SPA_AUDIO_FORMAT_S16:
+  case SPA_AUDIO_FORMAT_U16:
+    return 16;
+  case SPA_AUDIO_FORMAT_S24:
+    return 24;
+  case SPA_AUDIO_FORMAT_S32:
+  case SPA_AUDIO_FORMAT_U32:
+    return 32;
+  case SPA_AUDIO_FORMAT_F32:
+    return 32;
+  case SPA_AUDIO_FORMAT_F64:
+    return 64;
+  default:
+    return 0; // unknown
+  }
+}
 
 static XdpKeyState GLFWToXDPKeyState(int action) {
   switch (action) {
@@ -292,7 +315,7 @@ static int glfwToXdpKey(int key) {
   case GLFW_KEY_KP_ENTER:
     return KEY_KPENTER;
   case GLFW_KEY_KP_EQUAL:
-  return KEY_KPEQUAL;
+    return KEY_KPEQUAL;
 
   default:
     return KEY_UNKNOWN;
@@ -345,9 +368,14 @@ Remote::~Remote() {
     m_Data.g.loop = nullptr;
   }
 
-  if (m_Data.pw.stream) {
-    pw_stream_destroy(m_Data.pw.stream);
-    m_Data.pw.stream = nullptr;
+  if (m_Data.pw.videoStream.stream) {
+    pw_stream_destroy(m_Data.pw.videoStream.stream);
+    m_Data.pw.videoStream.stream = nullptr;
+  }
+
+  if (m_Data.pw.audioStream.stream) {
+    pw_stream_destroy(m_Data.pw.audioStream.stream);
+    m_Data.pw.audioStream.stream = nullptr;
   }
 
   if (m_Data.pw.core) {
@@ -386,9 +414,14 @@ Remote::~Remote() {
   pw_deinit();
 }
 
-void Remote::onStream(
+void Remote::onStreamVideo(
     const std::function<void(std::vector<uint8_t> buffer)> &callback) {
-  m_Data.onStream = callback;
+  m_Data.onStreamVideo = callback;
+}
+
+void Remote::onStreamAudio(
+    const std::function<void(const Chunk &chunk)> &callback) {
+  m_Data.onStreamAudio = callback;
 }
 
 void Remote::onResize(
@@ -454,40 +487,42 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
     if (!streams)
       throw std::runtime_error("Failed to get session child value");
 
-    g_variant_get(child, "(u@a{sv})", &data->target_id, nullptr);
+    g_variant_get(child, "(u@a{sv})", &data->targetId, nullptr);
     g_variant_unref(child);
     g_variant_unref(streams);
   }
 
   // Get pipewire discriptor
-  data->pw_fd = xdp_session_open_pipewire_remote(data->g.session);
+  data->pwFd = xdp_session_open_pipewire_remote(data->g.session);
 
-  // Setup pipewire
+  // Get the core
+  data->pw.core =
+      pw_context_connect_fd(data->pw.context, data->pwFd, nullptr, 0);
+
+  if (!data->pw.core)
+    throw std::runtime_error("Failed to connect context to pipewire fd");
+
+  // Setup video pipewire
   {
-    // Get the core
-    data->pw.core =
-        pw_context_connect_fd(data->pw.context, data->pw_fd, nullptr, 0);
-
-    if (!data->pw.core)
-      throw std::runtime_error("Failed to connect context to pipewire fd");
-
-    // Get the stream
-    data->pw.stream = pw_stream_new(
-        data->pw.core, "ssrd",
+    pw_properties *properties =
         pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY,
-                          "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr));
+                          "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr);
 
-    if (!data->pw.stream)
-      throw std::runtime_error("Failed to create pipewire stream");
+    data->pw.videoStream.streamEvents.version = PW_VERSION_STREAM_EVENTS;
+    data->pw.videoStream.streamEvents.param_changed = onVideoStreamParamsChange;
+    data->pw.videoStream.streamEvents.process = onVideoStreamProcess;
 
-    data->pw.streamEvents.version = PW_VERSION_STREAM_EVENTS;
-    data->pw.streamEvents.param_changed = onStreamParamsChange;
-    data->pw.streamEvents.process = onStreamProcess;
+    data->pw.videoStream.stream =
+        pw_stream_new(data->pw.core, "ssrd-video", properties);
 
-    pw_stream_add_listener(data->pw.stream, &data->pw.stream_listener,
-                           &data->pw.streamEvents, userData);
+    if (!data->pw.videoStream.stream)
+      throw std::runtime_error("Failed to create pipewire video stream");
 
-    uint8_t buffer[1024];
+    pw_stream_add_listener(data->pw.videoStream.stream,
+                           &data->pw.videoStream.streamListener,
+                           &data->pw.videoStream.streamEvents, userData);
+
+    uint8_t buffer[4096];
     struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
     const struct spa_pod *params[1];
 
@@ -500,11 +535,52 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
                                SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_BGRA,
                                SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_I420)));
 
-    if (pw_stream_connect(data->pw.stream, PW_DIRECTION_INPUT, data->target_id,
+    if (pw_stream_connect(data->pw.videoStream.stream, PW_DIRECTION_INPUT,
+                          data->targetId,
                           (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
                                             PW_STREAM_FLAG_MAP_BUFFERS),
                           params, 1) < 0)
-      throw std::runtime_error("Failed to connect to pipewire stream");
+      throw std::runtime_error("Failed to connect to pipewire video stream");
+  }
+
+  // Setup audio pipewire
+  {
+    pw_properties *properties = pw_properties_new(
+        PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
+        PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true",
+        PW_KEY_TARGET_OBJECT, "alsa_output.*.monitor", NULL);
+
+    data->pw.audioStream.streamEvents.version = PW_VERSION_STREAM_EVENTS;
+    data->pw.audioStream.streamEvents.param_changed = onAudioStreamParamsChange;
+    data->pw.audioStream.streamEvents.process = onAudioStreamProcess;
+
+    data->pw.audioStream.stream =
+        pw_stream_new_simple(data->pw.loop, "ssrd-audio", properties,
+                             &data->pw.audioStream.streamEvents, userData);
+
+    if (!data->pw.audioStream.stream)
+      throw std::runtime_error("Failed to create pipewire audio stream");
+
+    pw_stream_add_listener(data->pw.audioStream.stream,
+                           &data->pw.audioStream.streamListener,
+                           &data->pw.audioStream.streamEvents, userData);
+
+    uint8_t buffer[4096];
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+    const struct spa_pod *params[1];
+
+    struct spa_audio_info_raw info = {.format = SPA_AUDIO_FORMAT_F32,
+                                      .channels = 2};
+
+    params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+
+    if (pw_stream_connect(data->pw.audioStream.stream, PW_DIRECTION_INPUT,
+                          data->targetId,
+                          (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
+                                            PW_STREAM_FLAG_MAP_BUFFERS |
+                                            PW_STREAM_FLAG_RT_PROCESS),
+                          params, 1) < 0)
+      throw std::runtime_error("Failed to connect to pipewire audio stream");
   }
 
   int fd = pw_loop_get_fd(data->pw.loop);
@@ -536,33 +612,33 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
   g_source_unref(&source->base);
 }
 
-void Remote::onStreamParamsChange(void *userData, uint32_t id,
-                                  const struct spa_pod *param) {
+void Remote::onVideoStreamParamsChange(void *userData, uint32_t id,
+                                       const struct spa_pod *param) {
   auto *data = static_cast<Data *>(userData);
 
   if (param == NULL || id != SPA_PARAM_Format)
     return;
 
-  if (spa_format_parse(param, &data->format.media_type,
-                       &data->format.media_subtype) < 0)
+  if (spa_format_parse(param, &data->videoFormat.media_type,
+                       &data->videoFormat.media_subtype) < 0)
     return;
 
-  if (data->format.media_type != SPA_MEDIA_TYPE_video ||
-      data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+  if (data->videoFormat.media_type != SPA_MEDIA_TYPE_video ||
+      data->videoFormat.media_subtype != SPA_MEDIA_SUBTYPE_raw)
     return;
 
-  if (spa_format_video_raw_parse(param, &data->format.info.raw) < 0)
+  if (spa_format_video_raw_parse(param, &data->videoFormat.info.raw) < 0)
     return;
+
+  int width = data->videoFormat.info.raw.size.width;
+  int height = data->videoFormat.info.raw.size.height;
 
   LOG("Video format:");
   LOG("  format:", spa_debug_type_find_name(spa_type_video_format,
-                                            data->format.info.raw.format));
-
-  int width = data->format.info.raw.size.width;
-  int height = data->format.info.raw.size.height;
+                                            data->videoFormat.info.raw.format));
   LOG("  size:", width, height);
-  LOG("  framerate:", data->format.info.raw.framerate.num,
-      data->format.info.raw.framerate.denom);
+  LOG("  framerate:", data->videoFormat.info.raw.framerate.num,
+      data->videoFormat.info.raw.framerate.denom);
 
   // Resize the framebuffer to fit the image size
   data->framebuffer.resize((width * height) * 3);
@@ -570,13 +646,36 @@ void Remote::onStreamParamsChange(void *userData, uint32_t id,
     data->onResize(width, height);
 }
 
-void Remote::onStreamProcess(void *userData) {
+void Remote::onAudioStreamParamsChange(void *userData, uint32_t id,
+                                       const struct spa_pod *param) {
   auto *data = static_cast<Data *>(userData);
 
-  if (!data->onStream)
+  if (param == NULL || id != SPA_PARAM_Format)
     return;
 
-  pw_buffer *b = pw_stream_dequeue_buffer(data->pw.stream);
+  if (spa_format_parse(param, &data->audioFormat.media_type,
+                       &data->audioFormat.media_subtype) < 0)
+    return;
+
+  if (data->audioFormat.media_type != SPA_MEDIA_TYPE_audio ||
+      data->audioFormat.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+    return;
+
+  spa_format_audio_raw_parse(param, &data->audioFormat.info.raw);
+
+  LOG("Audio format:");
+  LOG("  Capture format:", data->audioFormat.info.raw.rate, "hz");
+  LOG("  channels:", data->audioFormat.info.raw.channels);
+  LOG("  bit:", spa_audio_format_depth(data->audioFormat.info.raw.format));
+}
+
+void Remote::onVideoStreamProcess(void *userData) {
+  auto *data = static_cast<Data *>(userData);
+
+  if (!data->onStreamVideo)
+    return;
+
+  pw_buffer *b = pw_stream_dequeue_buffer(data->pw.videoStream.stream);
 
   if (!b)
     return;
@@ -584,22 +683,57 @@ void Remote::onStreamProcess(void *userData) {
   spa_data *d = b->buffer->datas;
 
   if (d[0].chunk->size == 0 || d[0].data == NULL) {
-    pw_stream_queue_buffer(data->pw.stream, b);
+    pw_stream_queue_buffer(data->pw.videoStream.stream, b);
     return;
   }
 
   uint8_t *frame = (uint8_t *)SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
   size_t size = d[0].chunk->size;
 
-  int width = data->format.info.raw.size.width;
-  int height = data->format.info.raw.size.height;
+  int width = data->videoFormat.info.raw.size.width;
+  int height = data->videoFormat.info.raw.size.height;
 
   writeTobuffer(&data->framebuffer, frame, width, height,
-                data->format.info.raw.format);
+                data->videoFormat.info.raw.format);
 
-  data->onStream(data->framebuffer);
+  data->onStreamVideo(data->framebuffer);
 
-  pw_stream_queue_buffer(data->pw.stream, b);
+  pw_stream_queue_buffer(data->pw.videoStream.stream, b);
+}
+
+void Remote::onAudioStreamProcess(void *userData) {
+  auto *data = static_cast<Data *>(userData);
+
+  pw_buffer *b = pw_stream_dequeue_buffer(data->pw.audioStream.stream);
+  spa_buffer *buffer = b == nullptr ? nullptr : b->buffer;
+
+  if (buffer == nullptr) {
+    pw_log_warn("out of buffers: %m");
+    return;
+  }
+
+  float *samples = nullptr;
+  if ((samples = (float *)buffer->datas[0].data) == nullptr)
+    return;
+
+  uint32_t channels = data->audioFormat.info.raw.channels;
+  uint32_t frames = buffer->datas[0].chunk->size / (sizeof(float) * channels);
+  float *in = reinterpret_cast<float *>(buffer->datas[0].data);
+  size_t sampleCount = frames * channels;
+
+  std::vector<float> raw(sampleCount);
+  std::memcpy(raw.data(), samples, sampleCount * sizeof(float));
+
+  if (data->onStreamAudio)
+    data->onStreamAudio(Chunk{
+        .buffer = raw,
+        .frames = frames,
+        .sampleRate = data->audioFormat.info.raw.rate,
+        .channels = channels,
+        .bits = spa_audio_format_depth(data->audioFormat.info.raw.format),
+    });
+
+  pw_stream_queue_buffer(data->pw.audioStream.stream, b);
 }
 
 void Remote::begin() {
@@ -655,16 +789,16 @@ void Remote::keyboard(int key, int action, int mods) {
 }
 
 void Remote::mouse(double x, double y) {
-  if (!m_Data.pw.stream)
+  if (!m_Data.pw.videoStream.stream)
     return;
 
-  int width = m_Data.format.info.raw.size.width;
-  int height = m_Data.format.info.raw.size.height;
+  int width = m_Data.videoFormat.info.raw.size.width;
+  int height = m_Data.videoFormat.info.raw.size.height;
 
   double positionX = width * x;
   double positionY = height * y;
 
-  xdp_session_pointer_position(m_Data.g.session, m_Data.target_id, positionX,
+  xdp_session_pointer_position(m_Data.g.session, m_Data.targetId, positionX,
                                positionY);
 }
 

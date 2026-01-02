@@ -126,11 +126,13 @@ void Client::stream() {
         m_Decoder.initialize(width, height);
       }
 
-      if (type == "stream") {
+      if (type == "stream-video") {
         std::lock_guard<std::mutex> lock(m_VBufferMut);
         m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
-        // m_VBuffer = Payload::get(1, buffer);
       }
+
+      if (type == "stream-audio")
+        m_AudioPlayer.WriteStream(m_AudioDecoder.Decode(Payload::get(1, buffer), 960 * 6));
     }
   });
 }
@@ -242,7 +244,7 @@ static void onScroll(GLFWwindow *window, double xoffset, double yoffset) {
     payload.set(static_cast<int>(xoffset));
     payload.set(static_cast<int>(yoffset));
   }
-  
+
   client->socket.send(payload.buffer.data(), payload.buffer.size());
 }
 

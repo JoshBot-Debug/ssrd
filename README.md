@@ -103,6 +103,7 @@ ssrd/
 
 - This project is **not production-ready** yet.  
 - Error handling and additional security layers are still being improved.  
+- The rsa key exchange is primitive, need to improve it among other things.
 - Contributions and feedback are welcome.  
 
 ---

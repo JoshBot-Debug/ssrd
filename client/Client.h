@@ -10,6 +10,8 @@
 #include "Socket.h"
 #include "Window.h"
 #include "Decoder.h"
+#include "AudioDecoder.h"
+#include "AudioStreamPlayer.h"
 
 class Client {
 private:
@@ -24,6 +26,8 @@ private:
 private:
   OpenSSL m_Openssl;
   Decoder m_Decoder;
+  AudioDecoder m_AudioDecoder{24000, 2};
+  AudioStreamPlayer m_AudioPlayer{24000, 2};
 
   std::string m_IP;
   

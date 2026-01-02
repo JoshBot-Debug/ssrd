@@ -4,6 +4,7 @@
 #include "Remote.h"
 #include "Encoder.h"
 #include "Socket.h"
+#include "AudioEncoder.h"
 
 #include <atomic>
 #include <string>
@@ -15,6 +16,7 @@ private:
   Socket m_Socket;
   OpenSSL m_Openssl;
   Encoder m_Encoder;
+  AudioEncoder m_AudioEncoder{24000, 64};
 
   std::atomic<bool> m_Running = true;
 
