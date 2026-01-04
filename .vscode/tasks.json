@@ -12,16 +12,6 @@
       "problemMatcher": ["$gcc"]
     },
     {
-      "label": "Build Debug \\w STL",
-      "type": "shell",
-      "command": "cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_STL_DEBUG=ON && cmake --build build",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": ["$gcc"]
-    },
-    {
       "label": "Clear Logs",
       "type": "shell",
       "command": "rm -r ./logs/*",
@@ -50,18 +40,14 @@
         "kind": "build",
         "isDefault": true
       },
-      "dependsOn": [
-        "Build Debug"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
+      "dependsOn": ["Build Debug"],
+      "problemMatcher": ["$gcc"],
       "presentation": {
         "reveal": "always",
         "clear": true,
         "panel": "dedicated",
         "showReuseMessage": false
-      },
+      }
     }
   ]
 }

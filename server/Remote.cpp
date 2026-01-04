@@ -429,6 +429,14 @@ void Remote::onResize(
   m_Data.onResize = callback;
 }
 
+void Remote::onSessionConnected(const std::function<void()> &callback) {
+  m_Data.onSessionConnected = callback;
+}
+
+void Remote::onSessionDisconnected(const std::function<void()> &callback) {
+  m_Data.onSessionDisconnected = callback;
+}
+
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
@@ -438,6 +446,9 @@ void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   }
 
   LOG("Session closed");
+
+  if (data->onSessionDisconnected)
+    data->onSessionDisconnected();
 }
 
 void Remote::onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
@@ -450,7 +461,7 @@ void Remote::onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
 
   // Handle session closed
   data->g.sessionClosedHandle = g_signal_connect(
-      data->g.session, "closed", G_CALLBACK(onSessionClosed), nullptr);
+      data->g.session, "closed", G_CALLBACK(onSessionClosed), userData);
 
   xdp_session_start(data->g.session, nullptr, nullptr, onSessionStart,
                     userData);
@@ -610,6 +621,9 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
                        (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
   g_source_attach(&source->base, data->g.context);
   g_source_unref(&source->base);
+
+  if (data->onSessionConnected)
+    data->onSessionConnected();
 }
 
 void Remote::onVideoStreamParamsChange(void *userData, uint32_t id,
@@ -816,4 +830,9 @@ void Remote::mouseScroll(int x, int y) {
   if (x != 0)
     xdp_session_pointer_axis_discrete(
         m_Data.g.session, XdpDiscreteAxis::XDP_AXIS_VERTICAL_SCROLL, -x);
+}
+
+bool Remote::isSessionActive() {
+  return xdp_session_get_session_state(m_Data.g.session) ==
+         XdpSessionState::XDP_SESSION_ACTIVE;
 }

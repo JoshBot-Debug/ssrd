@@ -94,8 +94,7 @@ bool Client::authentication() {
       if (!buffer.size())
         continue;
 
-      authenticated = buffer[0];
-      break;
+      return buffer[0];
     }
 
     return authenticated;
@@ -116,6 +115,11 @@ void Client::stream() {
       auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
                               bytes.size());
 
+      if (type == "end-session") {
+        m_Running.store(false);
+        break;
+      }
+
       if (type == "resize") {
         int width = Payload::toUInt(Payload::get(1, buffer));
         int height = Payload::toUInt(Payload::get(2, buffer));
@@ -132,7 +136,8 @@ void Client::stream() {
       }
 
       if (type == "stream-audio")
-        m_AudioPlayer.WriteStream(m_AudioDecoder.Decode(Payload::get(1, buffer), 960 * 6));
+        m_AudioPlayer.WriteStream(
+            m_AudioDecoder.Decode(Payload::get(1, buffer), 960 * 6));
     }
   });
 }

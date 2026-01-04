@@ -1,6 +1,9 @@
 #include "Server.h"
 #include "Payload.h"
 #include "Utility.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 static const std::string HOME_DIR = getHomeDirectory();
 
@@ -50,13 +53,22 @@ bool Server::authenticate() {
     if (signature.size()) {
       LOG("Verifing signature");
 
-      /// TODO: Need to make this an authorized keys, like ssh
-      EVP_PKEY *publicKey =
-          m_Openssl.loadPublicKey((HOME_DIR + "/.ssrd/public.pem").c_str());
+      fs::path authorizedKeysDir = HOME_DIR + "/.ssrd/authorized_keys";
 
-      return m_Openssl.verify(publicKey, bytes.data(), bytes.size(),
-                              static_cast<const uint8_t *>(signature.data()),
-                              signature.size());
+      if (fs::is_directory(authorizedKeysDir)) {
+        for (const auto &entry : fs::directory_iterator(authorizedKeysDir)) {
+          if (entry.is_regular_file() && entry.path().extension() == ".pem") {
+            EVP_PKEY *publicKey = m_Openssl.loadPublicKey(entry.path().c_str());
+
+            if (m_Openssl.verify(publicKey, bytes.data(), bytes.size(),
+                                 static_cast<const uint8_t *>(signature.data()),
+                                 signature.size()))
+              return true;
+          }
+        }
+
+        return false;
+      }
     }
   }
 
@@ -98,8 +110,8 @@ void Server::remote() {
     auto resampled =
         m_AudioEncoder.LinearResample(chunk.buffer, chunk.sampleRate, 24000);
 
-    std::vector<uint8_t> buffer = m_AudioEncoder.Encode(
-        resampled.data(), resampled.size(), 960);
+    std::vector<uint8_t> buffer =
+        m_AudioEncoder.Encode(resampled.data(), resampled.size(), 960);
 
     if (buffer.size() == 0)
       return;
@@ -114,55 +126,63 @@ void Server::remote() {
 
   LOG("Remote desktop begin");
 
-  m_RemoteThread = std::thread([this]() { m_Remote->begin(); });
-
-  m_InputThread = std::thread([this]() {
-    while (m_Running.load()) {
-
-      std::vector<uint8_t> buffer = {};
-
-      if (m_Socket.read(buffer) <= 0)
-        break;
-
-      std::vector<uint8_t> bytes = Payload::get(0, buffer);
-      auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
-                              bytes.size());
-
-      if (type == "key") {
-        auto key = Payload::toInt(Payload::get(1, buffer));
-        auto action = Payload::toInt(Payload::get(2, buffer));
-        auto mods = Payload::toInt(Payload::get(3, buffer));
-
-        LOG("key", key, action, mods);
-        m_Remote->keyboard(key, action, mods);
-      }
-
-      if (type == "mouse-move") {
-        auto x = Payload::toDouble(Payload::get(1, buffer));
-        auto y = Payload::toDouble(Payload::get(2, buffer));
-
-        LOG("mouse-move", x, y);
-        m_Remote->mouse(x, y);
-      }
-
-      if (type == "mouse-button") {
-        auto button = Payload::toInt(Payload::get(1, buffer));
-        auto action = Payload::toInt(Payload::get(2, buffer));
-        auto mods = Payload::toInt(Payload::get(3, buffer));
-
-        LOG("mouse-button", button, action, mods);
-        m_Remote->mouseButton(button, action, mods);
-      }
-
-      if (type == "mouse-scroll") {
-        auto x = Payload::toInt(Payload::get(1, buffer));
-        auto y = Payload::toInt(Payload::get(2, buffer));
-
-        LOG("mouse-scroll", x, y);
-        m_Remote->mouseScroll(x, y);
-      }
-    }
+  m_Remote->onSessionDisconnected([this]() {
+    Payload payload;
+    payload.set("end-session");
+    m_Socket.send(payload.buffer.data(), payload.buffer.size());
   });
+
+  m_Remote->onSessionConnected([this]() {
+    m_InputThread = std::thread([this]() {
+      while (m_Remote->isSessionActive()) {
+
+        std::vector<uint8_t> buffer = {};
+
+        if (m_Socket.read(buffer) <= 0)
+          break;
+
+        std::vector<uint8_t> bytes = Payload::get(0, buffer);
+        auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
+                                bytes.size());
+
+        if (type == "key") {
+          auto key = Payload::toInt(Payload::get(1, buffer));
+          auto action = Payload::toInt(Payload::get(2, buffer));
+          auto mods = Payload::toInt(Payload::get(3, buffer));
+
+          LOG("key", key, action, mods);
+          m_Remote->keyboard(key, action, mods);
+        }
+
+        if (type == "mouse-move") {
+          auto x = Payload::toDouble(Payload::get(1, buffer));
+          auto y = Payload::toDouble(Payload::get(2, buffer));
+
+          LOG("mouse-move", x, y);
+          m_Remote->mouse(x, y);
+        }
+
+        if (type == "mouse-button") {
+          auto button = Payload::toInt(Payload::get(1, buffer));
+          auto action = Payload::toInt(Payload::get(2, buffer));
+          auto mods = Payload::toInt(Payload::get(3, buffer));
+
+          LOG("mouse-button", button, action, mods);
+          m_Remote->mouseButton(button, action, mods);
+        }
+
+        if (type == "mouse-scroll") {
+          auto x = Payload::toInt(Payload::get(1, buffer));
+          auto y = Payload::toInt(Payload::get(2, buffer));
+
+          LOG("mouse-scroll", x, y);
+          m_Remote->mouseScroll(x, y);
+        }
+      }
+    });
+  });
+
+  m_RemoteThread = std::thread([this]() { m_Remote->begin(); });
 
   if (m_RemoteThread.joinable())
     m_RemoteThread.join();

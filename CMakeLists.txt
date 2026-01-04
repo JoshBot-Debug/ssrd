@@ -2,12 +2,8 @@ cmake_minimum_required(VERSION 3.22)
 project(ssrd)
 
 # === Options ===
-option(ENABLE_AVX256 "Enable AVX-256 instructions" OFF)
-option(ENABLE_OPEN_MP "Enable multithreaded with OpenMP" OFF)
 option(ENABLE_STL_DEBUG "Enable STL debug mode and DEBUG macro." OFF)
 option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer (disables AddressSanitizer)" OFF)
-option(ENABLE_OPENGL_VALIDATION "Enable OPENGL validation & debug extension" OFF)
-option(ENABLE_VMA_STATS_LOG "Log out OPENGL memory allocator stats when the application exits" OFF)
 
 # === Compiler Flags ===
 set(CMAKE_CXX_STANDARD 23)
@@ -15,61 +11,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# === Optional AVX ===
-if(ENABLE_AVX256)
-  add_compile_options(-mavx2)
-  message(STATUS "AVX-256 instructions ENABLED.")
-else()
-  message(STATUS "AVX-256 is DISABLED.")
-endif()
-
-# === OPENGL validation ===
-if(ENABLE_OPENGL_VALIDATION)
-    add_compile_definitions(ENABLE_OPENGL_VALIDATION)
-endif()
-
-# === Log VMA stats ===
-if(ENABLE_VMA_STATS_LOG)
-    add_compile_definitions(ENABLE_VMA_STATS_LOG)
-endif()
-
 # === Source Files ===
 file(GLOB_RECURSE COMMON_SRC ${CMAKE_SOURCE_DIR}/common/*.cpp)
 file(GLOB_RECURSE CLIENT_SRC ${CMAKE_SOURCE_DIR}/client/*.cpp)
-file(GLOB_RECURSE SERVER_ALL_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
+file(GLOB_RECURSE SERVER_SRC ${CMAKE_SOURCE_DIR}/server/*.cpp)
 file(GLOB_RECURSE GLAD_SRC ${CMAKE_SOURCE_DIR}/glad/*.c)
-
-set(SERVER_SRC "")
-foreach(f ${SERVER_ALL_SRC})
-  if(f MATCHES "Windows\\.cpp$")
-    if(WIN32)
-      list(APPEND SERVER_SRC ${f})
-    endif()
-  elseif(f MATCHES "Linux\\.cpp$")
-    if(UNIX AND NOT APPLE)
-      list(APPEND SERVER_SRC ${f})
-    endif()
-  else()
-    list(APPEND SERVER_SRC ${f})
-  endif()
-endforeach()
 
 add_executable(ssrd-client ${CLIENT_SRC} ${COMMON_SRC} ${GLAD_SRC})
 add_executable(ssrd-server ${SERVER_SRC} ${COMMON_SRC})
-
-# === OpenMP ===
-if(ENABLE_OPEN_MP)
-  find_package(OpenMP REQUIRED)
-  if(OpenMP_FOUND)
-    target_link_libraries(ssrd PRIVATE OpenMP::OpenMP_CXX)
-    target_compile_definitions(ssrd PRIVATE ENABLE_OPEN_MP)
-    message(STATUS "OpenMP multithreading is ENABLED.")
-  else()
-    message(WARNING "OpenMP requested but NOT FOUND.")
-  endif()
-else()
-  message(STATUS "OpenMP is DISABLED.")
-endif()
 
 # === Libraries ===
 find_package(PkgConfig REQUIRED)
@@ -109,6 +58,10 @@ foreach(target ssrd-client ssrd-server)
 # === Common Libraries ===
 target_link_libraries(${target} PRIVATE
   ${OPENSSL_LIBRARIES}
+  ${AVCODEC_LIBRARIES}
+  ${SWSCALE_LIBRARIES}
+  ${AVUTIL_LIBRARIES}
+  ${OPUS_LIBRARIES}
 )
 
 # === Common Include Directories ===
@@ -123,10 +76,6 @@ endforeach()
 target_link_libraries(ssrd-client PRIVATE
   ${OPENGL_LIBRARIES}
   ${GLFW3_LIBRARIES}
-  ${AVCODEC_LIBRARIES}
-  ${SWSCALE_LIBRARIES}
-  ${AVUTIL_LIBRARIES}
-  ${OPUS_LIBRARIES}
   ${PORT_AUDIO_LIBRARIES}
 )
 
@@ -140,18 +89,22 @@ target_link_libraries(ssrd-server PRIVATE
   ${PIPEWIRE_LIBRARIES}
   ${PORTAL_LIBRARIES}
   ${PORTAL_GTK_LIBRARIES}
-  ${AVCODEC_LIBRARIES}
-  ${SWSCALE_LIBRARIES}
-  ${AVUTIL_LIBRARIES}
-  ${OPUS_LIBRARIES}
 )
 
 # === Include Directories ===
 target_include_directories(ssrd-server PRIVATE 
   ${CMAKE_SOURCE_DIR}/server
-  ${PIPEWIRE_INCLUDE_DIRS}
   ${PORTAL_INCLUDE_DIRS}
   ${PORTAL_GTK_INCLUDE_DIRS}
+)
+
+# === Release portability flags (per-target) ===
+target_compile_options(ssrd-client PRIVATE
+  $<$<CONFIG:Release>:-O3 -mtune=generic>
+)
+
+target_compile_options(ssrd-server PRIVATE
+  $<$<CONFIG:Release>:-O3 -mtune=generic>
 )
 
 # === Optional: ccache (speed up rebuilds) ===
@@ -197,7 +150,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   endif()
 endif()
 
-# === Release Configuration ===
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer -g0 -s -ffast-math")
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto=auto")
-set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-flto=auto")
+# === Install rules ===
+include(GNUInstallDirs)
+
+install(TARGETS ssrd-client ssrd-server
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

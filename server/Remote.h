@@ -5,8 +5,8 @@
 
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
-#include <spa/param/video/format-utils.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
 
 struct Chunk {
   std::vector<float> &buffer;
@@ -55,6 +55,8 @@ private:
     std::function<void(int width, int height)> onResize = nullptr;
     std::function<void(std::vector<uint8_t> buffer)> onStreamVideo = nullptr;
     std::function<void(const Chunk &chunk)> onStreamAudio = nullptr;
+    std::function<void()> onSessionConnected = nullptr;
+    std::function<void()> onSessionDisconnected = nullptr;
   };
 
   struct PipewireSource {
@@ -90,9 +92,14 @@ public:
 
   void onStreamVideo(
       const std::function<void(std::vector<uint8_t> buffer)> &callback);
+
   void onStreamAudio(const std::function<void(const Chunk &chunk)> &callback);
 
   void onResize(const std::function<void(int width, int height)> &callback);
+
+  void onSessionConnected(const std::function<void()> &callback);
+
+  void onSessionDisconnected(const std::function<void()> &callback);
 
   void begin();
 
@@ -105,4 +112,6 @@ public:
   void mouseButton(int button, int action, int mods);
 
   void mouseScroll(int x, int y);
+
+  bool isSessionActive();
 };

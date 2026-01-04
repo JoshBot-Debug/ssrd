@@ -31,6 +31,13 @@ Socket::~Socket() {
 
 void Socket::listen(uint16_t port) {
   if (!isSocketBound(m_Server)) {
+
+    int opt = 1;
+    if (setsockopt(m_Server, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+      ::close(m_Server);
+      throw std::runtime_error("setsockopt(SO_REUSEADDR) failed");
+    }
+
     // Bind socket to IP/Port
     m_ServerAddress.sin_family = AF_INET;
     m_ServerAddress.sin_addr.s_addr = INADDR_ANY;
