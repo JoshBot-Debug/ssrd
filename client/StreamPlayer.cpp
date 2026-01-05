@@ -1,6 +1,8 @@
 #include "StreamPlayer.h"
 #include <iostream>
 
+const uint64_t ONE_SECOND = 1'000'000'000ULL;
+
 StreamPlayer::StreamPlayer(int sampleRate, int channels, uint64_t bufferNs)
     : m_SampleRate(sampleRate), m_Channels(channels), m_BufferNs(bufferNs) {
   Pa_Initialize();
@@ -13,7 +15,7 @@ StreamPlayer::StreamPlayer(int sampleRate, int channels, uint64_t bufferNs)
 
   m_RingBuffer.resize((m_SampleRate * m_Channels) +
                       (m_SampleRate * m_Channels *
-                       (static_cast<float>(m_BufferNs) / 1'000'000'000ULL)));
+                       (static_cast<float>(m_BufferNs) / ONE_SECOND)));
 
   Pa_OpenStream(&m_Stream, nullptr, &out, m_SampleRate, 256, paNoFlag, Callback,
                 this);
@@ -31,73 +33,95 @@ int StreamPlayer::Callback(const void *, void *output, unsigned long frameCount,
   auto *self = static_cast<StreamPlayer *>(userData);
   float *out = static_cast<float *>(output);
 
-  std::lock_guard<std::mutex> lock(self->m_Mutex);
+  size_t read = self->m_ReadPos.load(std::memory_order::relaxed);
+  size_t write = self->m_WritePos.load(std::memory_order::acquire);
 
   for (unsigned long i = 0; i < frameCount * self->m_Channels; ++i) {
-    if (!self->m_PlaybackStarted || self->m_ReadPos == self->m_WritePos) {
-      out[i] = 0.0f; // silence on underrun
-    } else {
-      out[i] = self->m_RingBuffer[self->m_ReadPos];
-      self->m_ReadPos = (self->m_ReadPos + 1) % self->m_RingBuffer.size();
+    if (!self->m_PlaybackStarted || read == write)
+      out[i] = 0.0f;
+    else {
+      out[i] = self->m_RingBuffer[read];
+      read = (read + 1) % self->m_RingBuffer.size();
     }
   }
 
-  if (self->m_PlaybackStarted)
-    self->m_PlayedFrames += frameCount;
+  self->m_ReadPos.store(read, std::memory_order::release);
 
   return paContinue;
 }
 
 void StreamPlayer::AudioBuffer(const std::vector<float> &buffer, uint64_t ns) {
 
-  if (!m_Started) {
-    m_StartPtsNs = ns;
-    m_PlaybackStartPtsNs = m_StartPtsNs + m_BufferNs;
-    m_Started = true;
+  if (!m_Started.load(std::memory_order::relaxed)) {
+    m_PlaybackStartNs = ns + m_BufferNs;
+    m_AudioDeviceStartTime = Pa_GetStreamTime(m_Stream);
+    m_Started.store(true, std::memory_order::release);
   }
 
-  {
-    std::lock_guard<std::mutex> lock(m_Mutex);
+  size_t write = m_WritePos.load(std::memory_order::relaxed);
+  size_t read = m_ReadPos.load(std::memory_order::acquire);
+  size_t size = m_RingBuffer.size();
 
-    for (float s : buffer) {
-      m_RingBuffer[m_WritePos] = s;
-      m_WritePos = (m_WritePos + 1) % m_RingBuffer.size();
-    }
+  for (float s : buffer) {
+    size_t next = (write + 1) % size;
+    if (next == read)
+      break;
+    m_RingBuffer[write] = s;
+    write = next;
   }
 
-  if (!m_PlaybackStarted && ns >= m_PlaybackStartPtsNs)
+  m_WritePos.store(write, std::memory_order::release);
+
+  if (!m_PlaybackStarted.load(std::memory_order::relaxed) &&
+      ns >= m_PlaybackStartNs)
     Start();
+}
 
-  if (m_PlaybackStarted)
-    m_AudioClockNs =
-        m_StartPtsNs + (m_PlayedFrames * 1'000'000'000ULL) / m_SampleRate;
+uint64_t StreamPlayer::AudioClockNs() const {
+  if (!m_PlaybackStarted.load(std::memory_order::relaxed))
+    return m_AudioStartNs;
+
+  double deviceTime = Pa_GetStreamTime(m_Stream);
+  double delta = deviceTime - m_AudioDeviceStartTime;
+  return m_AudioStartNs + uint64_t(delta * ONE_SECOND);
 }
 
 void StreamPlayer::VideoBuffer(const std::vector<uint8_t> &buffer,
                                uint64_t ns) {
+  std::lock_guard<std::mutex> lock(m_VideoMutex);
   m_VideoQueue.push_back({buffer, ns});
 }
 
 void StreamPlayer::Start() {
-  m_ReadPos = 0;
-  m_PlaybackStarted = true;
+  m_PlaybackStarted.store(true, std::memory_order::release);
   Pa_StartStream(m_Stream);
+  m_AudioStartNs = m_PlaybackStartNs;
+  m_AudioDeviceStartTime = Pa_GetStreamTime(m_Stream);
 }
 
 std::vector<uint8_t> StreamPlayer::Update() {
+  std::lock_guard<std::mutex> lock(m_VideoMutex);
 
-  if (!m_Started || m_VideoQueue.empty())
+  if (!m_PlaybackStarted.load(std::memory_order::relaxed) ||
+      m_VideoQueue.empty())
     return {};
 
-  const uint64_t toleranceNs = 15'000'000;
-
+  uint64_t audioNs = AudioClockNs();
   auto &frame = m_VideoQueue.front();
 
-  if (frame.ns <= m_AudioClockNs + toleranceNs) {
-    auto data = frame.data;
+  // Drop late frames
+  if (frame.ns < audioNs - 15'000'000) {
     m_VideoQueue.pop_front();
-    return data;
+    return {};
   }
 
-  return {};
+  // Too early → wait
+  if (frame.ns > audioNs) {
+    return {};
+  }
+
+  // Exact time → present ONE frame
+  auto data = frame.data;
+  m_VideoQueue.pop_front();
+  return data;
 }

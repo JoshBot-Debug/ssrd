@@ -24,20 +24,21 @@ private:
   uint64_t m_BufferNs;
 
   std::vector<float> m_RingBuffer;
-  size_t m_ReadPos = 0;
-  size_t m_WritePos = 0;
-
+  std::atomic<size_t> m_ReadPos{0};
+  std::atomic<size_t> m_WritePos{0};
   std::atomic<uint64_t> m_PlayedFrames{0};
-  std::mutex m_Mutex;
+  std::mutex m_VideoMutex;
 
-  uint64_t m_AudioClockNs = 0;
-  bool m_Started = false;
-  uint64_t m_StartPtsNs = 0;
+  std::atomic<bool> m_PlaybackStarted = false;
+  std::atomic<bool> m_Started = false;
 
-  uint64_t m_PlaybackStartPtsNs = 0;
-  bool m_PlaybackStarted = false;
+  uint64_t m_AudioStartNs = 0;
+  double m_AudioDeviceStartTime = 0;
+  uint64_t m_PlaybackStartNs = 0;
 
   void Start();
+
+  uint64_t AudioClockNs() const;
 
 public:
   StreamPlayer(int sampleRate, int channels = 2,
