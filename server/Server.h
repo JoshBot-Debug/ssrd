@@ -16,7 +16,7 @@ private:
   Socket m_Socket;
   OpenSSL m_Openssl;
   Encoder m_Encoder;
-  AudioEncoder m_AudioEncoder{24000, 64};
+  AudioEncoder m_AudioEncoder{24000};
 
   std::atomic<bool> m_Running = true;
 

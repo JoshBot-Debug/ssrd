@@ -53,8 +53,10 @@ private:
 
     std::vector<uint8_t> framebuffer = {};
     std::function<void(int width, int height)> onResize = nullptr;
-    std::function<void(std::vector<uint8_t> buffer)> onStreamVideo = nullptr;
-    std::function<void(const Chunk &chunk)> onStreamAudio = nullptr;
+    std::function<void(std::vector<uint8_t> buffer, uint64_t time)>
+        onStreamVideo = nullptr;
+    std::function<void(const Chunk &chunk, uint64_t time)> onStreamAudio =
+        nullptr;
     std::function<void()> onSessionConnected = nullptr;
     std::function<void()> onSessionDisconnected = nullptr;
   };
@@ -90,10 +92,11 @@ public:
   Remote();
   ~Remote();
 
-  void onStreamVideo(
-      const std::function<void(std::vector<uint8_t> buffer)> &callback);
+  void onStreamVideo(const std::function<void(std::vector<uint8_t> buffer,
+                                              uint64_t time)> &callback);
 
-  void onStreamAudio(const std::function<void(const Chunk &chunk)> &callback);
+  void onStreamAudio(
+      const std::function<void(const Chunk &chunk, uint64_t time)> &callback);
 
   void onResize(const std::function<void(int width, int height)> &callback);
 

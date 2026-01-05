@@ -28,7 +28,10 @@ public:
 
     opus_encoder_ctl(m_OpusEncoder, OPUS_SET_BITRATE(bitrate * 1000));
     opus_encoder_ctl(m_OpusEncoder, OPUS_SET_VBR(1));
+    opus_encoder_ctl(m_OpusEncoder, OPUS_SET_VBR_CONSTRAINT(1));
     opus_encoder_ctl(m_OpusEncoder, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
+    opus_encoder_ctl(m_OpusEncoder, OPUS_SET_COMPLEXITY(8));
+    opus_encoder_ctl(m_OpusEncoder, OPUS_SET_PACKET_LOSS_PERC(5));
 
     m_Buffer.resize(m_MaxBytes, 0);
   }
@@ -66,6 +69,9 @@ public:
   std::vector<float> LinearResample(const std::vector<float> &input,
                                     double srcRate, double dstRate,
                                     int channels = 2) {
+    if (srcRate == dstRate)
+      return input;
+
     if (input.empty())
       return {};
 
@@ -98,7 +104,7 @@ public:
   }
 
   std::vector<int16_t> IEEEFloatToPCM16(const float *ieeFloat,
-                                      int samples) const {
+                                        int samples) const {
     std::vector<int16_t> pcm16(samples);
     for (size_t i = 0; i < samples; ++i) {
       float s = ieeFloat[i];

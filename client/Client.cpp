@@ -121,8 +121,8 @@ void Client::stream() {
       }
 
       if (type == "resize") {
-        int width = Payload::toUInt(Payload::get(1, buffer));
-        int height = Payload::toUInt(Payload::get(2, buffer));
+        int width = Payload::toUInt32(Payload::get(1, buffer));
+        int height = Payload::toUInt32(Payload::get(2, buffer));
 
         imageWidth.store(width, std::memory_order_relaxed);
         imageHeight.store(height, std::memory_order_relaxed);
@@ -131,13 +131,16 @@ void Client::stream() {
       }
 
       if (type == "stream-video") {
-        std::lock_guard<std::mutex> lock(m_VBufferMut);
-        m_VBuffer = m_Decoder.decode(Payload::get(1, buffer));
+        uint64_t time = Payload::toUInt64(Payload::get(1, buffer));
+        m_StreamPlayer.VideoBuffer(m_Decoder.decode(Payload::get(2, buffer)),
+                                   time);
       }
 
-      if (type == "stream-audio")
-        m_AudioPlayer.WriteStream(
-            m_AudioDecoder.Decode(Payload::get(1, buffer), 960 * 6));
+      if (type == "stream-audio") {
+        uint64_t time = Payload::toUInt64(Payload::get(1, buffer));
+        m_StreamPlayer.AudioBuffer(
+            m_AudioDecoder.Decode(Payload::get(2, buffer), 960), time);
+      }
     }
   });
 }
@@ -267,13 +270,11 @@ void Client::window() {
     });
 
     while (m_Running.load() && !w.shouldClose()) {
-      {
-        std::lock_guard<std::mutex> lock(m_VBufferMut);
-        w.setBuffer(m_VBuffer);
-      }
-
-      uint32_t width = imageWidth.load(std::memory_order_relaxed);
-      uint32_t height = imageHeight.load(std::memory_order_relaxed);
+      auto frame = m_StreamPlayer.Update();
+      if (frame.size())
+        w.setBuffer(frame);
+      uint32_t width = imageWidth.load(std::memory_order::relaxed);
+      uint32_t height = imageHeight.load(std::memory_order::relaxed);
       w.present(width, height);
     }
 

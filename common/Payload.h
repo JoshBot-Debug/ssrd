@@ -34,6 +34,11 @@ struct Payload {
     set(&value, sizeof(uint32_t));
   };
 
+  void set(uint64_t value) {
+    value = htonll(value);
+    set(&value, sizeof(uint64_t));
+  };
+
   void set(int value) { set(static_cast<uint32_t>(value)); };
 
   void set(double value) {
@@ -90,9 +95,15 @@ struct Payload {
     return static_cast<int>(ntohl(net));
   };
 
-  static uint32_t toUInt(const std::vector<uint8_t> &buffer) {
+  static uint32_t toUInt32(const std::vector<uint8_t> &buffer) {
     uint32_t net;
     std::memcpy(&net, buffer.data(), sizeof(uint32_t));
     return ntohl(net);
+  };
+
+  static uint64_t toUInt64(const std::vector<uint8_t> &buffer) {
+    uint64_t net;
+    std::memcpy(&net, buffer.data(), sizeof(uint64_t));
+    return ntohll(net);
   };
 };

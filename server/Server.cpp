@@ -92,7 +92,7 @@ void Server::remote() {
     m_Socket.send(payload.buffer.data(), payload.buffer.size());
   });
 
-  m_Remote->onStreamVideo([this](std::vector<uint8_t> raw) {
+  m_Remote->onStreamVideo([this](std::vector<uint8_t> raw, uint64_t time) {
     std::vector<uint8_t> buffer = m_Encoder.encode(raw);
 
     if (buffer.size() == 0)
@@ -100,13 +100,14 @@ void Server::remote() {
 
     Payload payload;
     payload.set("stream-video");
+    payload.set(time);
     payload.set(buffer.data(), buffer.size());
 
     if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
       m_Remote->end();
   });
 
-  m_Remote->onStreamAudio([this](const Chunk &chunk) {
+  m_Remote->onStreamAudio([this](const Chunk &chunk, uint64_t time) {
     auto resampled =
         m_AudioEncoder.LinearResample(chunk.buffer, chunk.sampleRate, 24000);
 
@@ -118,6 +119,7 @@ void Server::remote() {
 
     Payload payload;
     payload.set("stream-audio");
+    payload.set(time);
     payload.set(buffer.data(), buffer.size());
 
     if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
@@ -149,16 +151,12 @@ void Server::remote() {
           auto key = Payload::toInt(Payload::get(1, buffer));
           auto action = Payload::toInt(Payload::get(2, buffer));
           auto mods = Payload::toInt(Payload::get(3, buffer));
-
-          LOG("key", key, action, mods);
           m_Remote->keyboard(key, action, mods);
         }
 
         if (type == "mouse-move") {
           auto x = Payload::toDouble(Payload::get(1, buffer));
           auto y = Payload::toDouble(Payload::get(2, buffer));
-
-          LOG("mouse-move", x, y);
           m_Remote->mouse(x, y);
         }
 
@@ -166,16 +164,12 @@ void Server::remote() {
           auto button = Payload::toInt(Payload::get(1, buffer));
           auto action = Payload::toInt(Payload::get(2, buffer));
           auto mods = Payload::toInt(Payload::get(3, buffer));
-
-          LOG("mouse-button", button, action, mods);
           m_Remote->mouseButton(button, action, mods);
         }
 
         if (type == "mouse-scroll") {
           auto x = Payload::toInt(Payload::get(1, buffer));
           auto y = Payload::toInt(Payload::get(2, buffer));
-
-          LOG("mouse-scroll", x, y);
           m_Remote->mouseScroll(x, y);
         }
       }

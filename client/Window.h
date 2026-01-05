@@ -92,8 +92,8 @@ public:
     GLFWmonitor *monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
-    m_Window = glfwCreateWindow(mode->width, mode->height, "ssrd", monitor,
-    nullptr);
+    m_Window =
+        glfwCreateWindow(mode->width, mode->height, "ssrd", monitor, nullptr);
     // m_Window = glfwCreateWindow(800, 600, "ssrd", nullptr, nullptr);
 
     glfwSetWindowUserPointer(m_Window, init.data);
@@ -180,6 +180,13 @@ public:
 
   void present(uint32_t width, uint32_t height) {
     resize(width, height);
+
+    if (m_Buffer.empty()) {
+      glClear(GL_COLOR_BUFFER_BIT);
+      glfwSwapBuffers(m_Window);
+      glfwPollEvents();
+      return;
+    }
 
     glBindTexture(GL_TEXTURE_2D, m_Texture);
 

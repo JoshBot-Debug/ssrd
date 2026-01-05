@@ -414,13 +414,13 @@ Remote::~Remote() {
   pw_deinit();
 }
 
-void Remote::onStreamVideo(
-    const std::function<void(std::vector<uint8_t> buffer)> &callback) {
+void Remote::onStreamVideo(const std::function<void(std::vector<uint8_t> buffer,
+                                                    uint64_t time)> &callback) {
   m_Data.onStreamVideo = callback;
 }
 
 void Remote::onStreamAudio(
-    const std::function<void(const Chunk &chunk)> &callback) {
+    const std::function<void(const Chunk &chunk, uint64_t time)> &callback) {
   m_Data.onStreamAudio = callback;
 }
 
@@ -517,7 +517,7 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
   {
     pw_properties *properties =
         pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY,
-                          "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr);
+                          "Capture", PW_KEY_MEDIA_ROLE, "Screen", NULL);
 
     data->pw.videoStream.streamEvents.version = PW_VERSION_STREAM_EVENTS;
     data->pw.videoStream.streamEvents.param_changed = onVideoStreamParamsChange;
@@ -549,7 +549,8 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
     if (pw_stream_connect(data->pw.videoStream.stream, PW_DIRECTION_INPUT,
                           data->targetId,
                           (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
-                                            PW_STREAM_FLAG_MAP_BUFFERS),
+                                            PW_STREAM_FLAG_MAP_BUFFERS |
+                                            PW_STREAM_FLAG_RT_PROCESS),
                           params, 1) < 0)
       throw std::runtime_error("Failed to connect to pipewire video stream");
   }
@@ -558,8 +559,7 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
   {
     pw_properties *properties = pw_properties_new(
         PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
-        PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true",
-        PW_KEY_TARGET_OBJECT, "alsa_output.*.monitor", NULL);
+        PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true", NULL);
 
     data->pw.audioStream.streamEvents.version = PW_VERSION_STREAM_EVENTS;
     data->pw.audioStream.streamEvents.param_changed = onAudioStreamParamsChange;
@@ -594,8 +594,6 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
       throw std::runtime_error("Failed to connect to pipewire audio stream");
   }
 
-  int fd = pw_loop_get_fd(data->pw.loop);
-
   data->pw.pipewireSourceFuncs = {
       .dispatch = [](GSource *source, GSourceFunc callback,
                      gpointer user_data) -> gboolean {
@@ -616,6 +614,8 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
     throw std::runtime_error("Failed to create glib pipewire source");
 
   source->data = data;
+
+  int fd = pw_loop_get_fd(data->pw.loop);
 
   g_source_add_unix_fd(&source->base, fd,
                        (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
@@ -651,8 +651,7 @@ void Remote::onVideoStreamParamsChange(void *userData, uint32_t id,
   LOG("  format:", spa_debug_type_find_name(spa_type_video_format,
                                             data->videoFormat.info.raw.format));
   LOG("  size:", width, height);
-  LOG("  framerate:", data->videoFormat.info.raw.framerate.num,
-      data->videoFormat.info.raw.framerate.denom);
+  LOG("  framerate:", data->videoFormat.info.raw.framerate.num, data->videoFormat.info.raw.framerate.denom);
 
   // Resize the framebuffer to fit the image size
   data->framebuffer.resize((width * height) * 3);
@@ -675,7 +674,8 @@ void Remote::onAudioStreamParamsChange(void *userData, uint32_t id,
       data->audioFormat.media_subtype != SPA_MEDIA_SUBTYPE_raw)
     return;
 
-  spa_format_audio_raw_parse(param, &data->audioFormat.info.raw);
+  if (spa_format_audio_raw_parse(param, &data->audioFormat.info.raw) < 0)
+    return;
 
   LOG("Audio format:");
   LOG("  Capture format:", data->audioFormat.info.raw.rate, "hz");
@@ -710,7 +710,9 @@ void Remote::onVideoStreamProcess(void *userData) {
   writeTobuffer(&data->framebuffer, frame, width, height,
                 data->videoFormat.info.raw.format);
 
-  data->onStreamVideo(data->framebuffer);
+  uint64_t time = pw_stream_get_nsec(data->pw.videoStream.stream);
+
+  data->onStreamVideo(data->framebuffer, time);
 
   pw_stream_queue_buffer(data->pw.videoStream.stream, b);
 }
@@ -739,13 +741,15 @@ void Remote::onAudioStreamProcess(void *userData) {
   std::memcpy(raw.data(), samples, sampleCount * sizeof(float));
 
   if (data->onStreamAudio)
-    data->onStreamAudio(Chunk{
-        .buffer = raw,
-        .frames = frames,
-        .sampleRate = data->audioFormat.info.raw.rate,
-        .channels = channels,
-        .bits = spa_audio_format_depth(data->audioFormat.info.raw.format),
-    });
+    data->onStreamAudio(
+        Chunk{
+            .buffer = raw,
+            .frames = frames,
+            .sampleRate = data->audioFormat.info.raw.rate,
+            .channels = channels,
+            .bits = spa_audio_format_depth(data->audioFormat.info.raw.format),
+        },
+        b->time);
 
   pw_stream_queue_buffer(data->pw.audioStream.stream, b);
 }

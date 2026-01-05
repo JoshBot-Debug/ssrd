@@ -11,7 +11,7 @@
 #include "Window.h"
 #include "Decoder.h"
 #include "AudioDecoder.h"
-#include "AudioStreamPlayer.h"
+#include "StreamPlayer.h"
 
 class Client {
 private:
@@ -26,21 +26,19 @@ private:
 private:
   OpenSSL m_Openssl;
   Decoder m_Decoder;
-  AudioDecoder m_AudioDecoder{24000, 2};
-  AudioStreamPlayer m_AudioPlayer{24000, 2};
+  AudioDecoder m_AudioDecoder{24000};
 
   std::string m_IP;
   
   uint16_t m_Port = 1998;
   std::string m_Identity;
 
-  std::mutex m_VBufferMut;
-  std::vector<uint8_t> m_VBuffer = {};
-
   std::atomic<bool> m_Running = true;
 
   std::thread m_WindowThread;
   std::thread m_StreamThread;
+
+  StreamPlayer m_StreamPlayer{24000, 2, 0};
 
 public:
   Socket socket;
