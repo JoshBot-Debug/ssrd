@@ -57,7 +57,7 @@ bool Server::authenticate() {
 
       if (fs::is_directory(authorizedKeysDir)) {
         for (const auto &entry : fs::directory_iterator(authorizedKeysDir)) {
-          if (entry.is_regular_file() && entry.path().extension() == ".pem") {
+          if (entry.is_regular_file()) {
             EVP_PKEY *publicKey = m_Openssl.loadPublicKey(entry.path().c_str());
 
             if (m_Openssl.verify(publicKey, bytes.data(), bytes.size(),

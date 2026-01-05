@@ -16,7 +16,7 @@ int Client::initialize(int argc, char *argv[]) {
 
     app.set_help_flag("--help", "Display help information.");
 
-    m_Identity = HOME_DIR + "/.ssrd/private.pem";
+    m_Identity = HOME_DIR + "/.ssrd/id_rsa";
 
     app.add_option("-h,--host", m_IP,
                    "The IP address of the destination server eg. 127.0.0.1")
