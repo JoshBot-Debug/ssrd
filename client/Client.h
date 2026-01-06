@@ -38,7 +38,7 @@ private:
   std::thread m_WindowThread;
   std::thread m_StreamThread;
 
-  StreamPlayer m_StreamPlayer{24000, 2, 10000'000'000};
+  StreamPlayer m_StreamPlayer{24000, 2, 40'000'000};
 
 public:
   Socket socket;

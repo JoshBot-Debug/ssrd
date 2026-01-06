@@ -90,7 +90,7 @@ ssize_t Socket::send(int fd, const void *bytes, size_t size, int flags) {
 
   while (total < size) {
     ssize_t sent = ::send(fd, static_cast<const uint8_t *>(bytes) + total,
-                          size - total, 0);
+                          size - total, MSG_NOSIGNAL);
     if (sent == -1)
       return -1;
 

@@ -20,7 +20,6 @@ private:
 
   std::atomic<bool> m_Running = true;
 
-  std::thread m_RemoteThread;
   std::thread m_InputThread;
 
 public:

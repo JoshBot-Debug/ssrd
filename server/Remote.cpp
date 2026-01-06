@@ -360,56 +360,53 @@ Remote::Remote() {
   m_Data.g.context = g_main_loop_get_context(m_Data.g.loop);
   if (!m_Data.g.loop)
     throw std::runtime_error("Failed to get glib loop context");
+
+  xdp_portal_create_remote_desktop_session(
+      m_Data.g.portal,
+      (XdpDeviceType)(XDP_DEVICE_KEYBOARD | XDP_DEVICE_POINTER),
+      XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
+      XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
 }
 
 Remote::~Remote() {
-  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop)) {
-    g_main_loop_quit(m_Data.g.loop);
-    m_Data.g.loop = nullptr;
-  }
+  end();
 
-  if (m_Data.pw.videoStream.stream) {
+  if (m_Data.pw.videoStream.stream)
     pw_stream_destroy(m_Data.pw.videoStream.stream);
-    m_Data.pw.videoStream.stream = nullptr;
-  }
 
-  if (m_Data.pw.audioStream.stream) {
+  if (m_Data.pw.audioStream.stream)
     pw_stream_destroy(m_Data.pw.audioStream.stream);
-    m_Data.pw.audioStream.stream = nullptr;
-  }
 
-  if (m_Data.pw.core) {
+  if (m_Data.pw.core)
     pw_core_disconnect(m_Data.pw.core);
-    m_Data.pw.core = nullptr;
-  }
 
-  if (m_Data.pw.context) {
+  if (m_Data.pw.context)
     pw_context_destroy(m_Data.pw.context);
-    m_Data.pw.context = nullptr;
-  }
 
-  if (m_Data.pw.loop) {
+  if (m_Data.pw.loop)
     pw_loop_destroy(m_Data.pw.loop);
-    m_Data.pw.loop = nullptr;
-  }
 
-  if (m_Data.g.session) {
-    if (m_Data.g.sessionClosedHandle)
-      g_signal_handler_disconnect(m_Data.g.session,
-                                  m_Data.g.sessionClosedHandle);
+  if (m_Data.g.session && m_Data.g.sessionClosedHandle)
+    g_signal_handler_disconnect(m_Data.g.session, m_Data.g.sessionClosedHandle);
+
+  if (m_Data.g.session)
     g_object_unref(m_Data.g.session);
-    m_Data.g.session = nullptr;
-  }
 
-  if (m_Data.g.portal) {
+  if (m_Data.g.portal)
     g_object_unref(m_Data.g.portal);
-    m_Data.g.portal = nullptr;
-  }
 
-  if (m_Data.g.loop) {
+  if (m_Data.g.loop)
     g_main_loop_unref(m_Data.g.loop);
-    m_Data.g.loop = nullptr;
-  }
+
+  m_Data.pw.videoStream.stream = nullptr;
+  m_Data.pw.audioStream.stream = nullptr;
+  m_Data.pw.core = nullptr;
+  m_Data.pw.context = nullptr;
+  m_Data.pw.loop = nullptr;
+  m_Data.g.session = nullptr;
+  m_Data.g.portal = nullptr;
+  m_Data.g.loop = nullptr;
+  m_Data.g.sessionClosedHandle = 0;
 
   pw_deinit();
 }
@@ -440,10 +437,8 @@ void Remote::onSessionDisconnected(const std::function<void()> &callback) {
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
-  if (data && data->g.loop && g_main_loop_is_running(data->g.loop)) {
+  if (data && data->g.loop && g_main_loop_is_running(data->g.loop))
     g_main_loop_quit(data->g.loop);
-    data->g.loop = nullptr;
-  }
 
   LOG("Session closed");
 
@@ -480,10 +475,8 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
     if (error)
       g_error_free(error);
 
-    if (data->g.loop && g_main_loop_is_running(data->g.loop)) {
+    if (data->g.loop && g_main_loop_is_running(data->g.loop))
       g_main_loop_quit(data->g.loop);
-      data->g.loop = nullptr;
-    }
 
     return;
   }
@@ -651,7 +644,8 @@ void Remote::onVideoStreamParamsChange(void *userData, uint32_t id,
   LOG("  format:", spa_debug_type_find_name(spa_type_video_format,
                                             data->videoFormat.info.raw.format));
   LOG("  size:", width, height);
-  LOG("  framerate:", data->videoFormat.info.raw.framerate.num, data->videoFormat.info.raw.framerate.denom);
+  LOG("  framerate:", data->videoFormat.info.raw.framerate.num,
+      data->videoFormat.info.raw.framerate.denom);
 
   // Resize the framebuffer to fit the image size
   data->framebuffer.resize((width * height) * 3);
@@ -755,55 +749,45 @@ void Remote::onAudioStreamProcess(void *userData) {
 }
 
 void Remote::begin() {
-  xdp_portal_create_remote_desktop_session(
-      m_Data.g.portal,
-      (XdpDeviceType)(XDP_DEVICE_KEYBOARD | XDP_DEVICE_POINTER),
-      XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
-      XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
+  if (!m_Data.g.loop)
+    throw std::runtime_error("G Main loop was not created. Unexpected.");
+
+  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
+    throw std::runtime_error("G Main loop was already running. Unexpected.");
 
   g_main_loop_run(m_Data.g.loop);
 }
 
 void Remote::end() {
+  if (m_Data.g.session) {
+    for (uint32_t key : m_PressedKeyboardKeys)
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(key),
+                               XDP_KEY_RELEASED);
+
+    for (uint32_t mod : m_PressedKeyboardMods)
+      xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(mod),
+                               XDP_KEY_RELEASED);
+
+    for (uint32_t button : m_PressedMouseButtons)
+      xdp_session_pointer_button(m_Data.g.session, glfwToXdpMouseButton(button),
+                                 XDP_BUTTON_RELEASED);
+
+    m_PressedKeyboardKeys.clear();
+    m_PressedKeyboardMods.clear();
+    m_PressedMouseButtons.clear();
+  }
+
   if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
     g_main_loop_quit(m_Data.g.loop);
 }
 
 void Remote::keyboard(int key, int action, int mods) {
-  // Press modifiers
-  if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-    if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL,
-                               XDP_KEY_PRESSED);
-    if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT,
-                               XDP_KEY_PRESSED);
-    if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT,
-                               XDP_KEY_PRESSED);
-    if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA,
-                               XDP_KEY_PRESSED);
-  }
-
+  m_PressedKeyboardKeys.insert(key);
+  m_PressedKeyboardMods.insert(mods);
+  xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(mods),
+                           GLFWToXDPKeyState(action));
   xdp_session_keyboard_key(m_Data.g.session, FALSE, glfwToXdpKey(key),
                            GLFWToXDPKeyState(action));
-
-  // Release modifiers
-  if (action == GLFW_RELEASE) {
-    if (mods & GLFW_MOD_CONTROL)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTCTRL,
-                               XDP_KEY_RELEASED);
-    if (mods & GLFW_MOD_SHIFT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTSHIFT,
-                               XDP_KEY_RELEASED);
-    if (mods & GLFW_MOD_ALT)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTALT,
-                               XDP_KEY_RELEASED);
-    if (mods & GLFW_MOD_SUPER)
-      xdp_session_keyboard_key(m_Data.g.session, FALSE, KEY_LEFTMETA,
-                               XDP_KEY_RELEASED);
-  }
 }
 
 void Remote::mouse(double x, double y) {
@@ -821,6 +805,7 @@ void Remote::mouse(double x, double y) {
 }
 
 void Remote::mouseButton(int button, int action, int mods) {
+  m_PressedMouseButtons.insert(button);
   xdp_session_pointer_button(m_Data.g.session, glfwToXdpMouseButton(button),
                              glfwToXdpMouseButtonState(action));
 }

@@ -176,10 +176,7 @@ void Server::remote() {
     });
   });
 
-  m_RemoteThread = std::thread([this]() { m_Remote->begin(); });
-
-  if (m_RemoteThread.joinable())
-    m_RemoteThread.join();
+  m_Remote->begin();
 
   if (m_InputThread.joinable())
     m_InputThread.join();

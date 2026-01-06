@@ -26,27 +26,26 @@ private:
   std::vector<float> m_RingBuffer;
   std::atomic<size_t> m_ReadPos{0};
   std::atomic<size_t> m_WritePos{0};
-  std::atomic<uint64_t> m_PlayedFrames{0};
+  std::atomic<uint64_t> m_FramesPlayed{0};
   std::mutex m_VideoMutex;
 
   std::atomic<bool> m_PlaybackStarted = false;
   std::atomic<bool> m_Started = false;
 
-  uint64_t m_AudioStartNs = 0;
-  double m_AudioDeviceStartTime = 0;
-  uint64_t m_PlaybackStartNs = 0;
+  uint64_t m_StartPTS = 0;
+  uint64_t m_PlaybackStartPTS = 0;
 
   void Start();
 
-  uint64_t AudioClockNs() const;
+  uint64_t AudioClock() const;
 
 public:
   StreamPlayer(int sampleRate, int channels = 2,
                uint64_t bufferNs = 100'000'000);
   ~StreamPlayer();
 
-  void AudioBuffer(const std::vector<float> &buffer, uint64_t ns);
-  void VideoBuffer(const std::vector<uint8_t> &buffer, uint64_t ns);
+  void AudioBuffer(const std::vector<float> &buffer, uint64_t pts);
+  void VideoBuffer(const std::vector<uint8_t> &buffer, uint64_t pts);
 
   std::vector<uint8_t> Update();
 };

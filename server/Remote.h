@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <vector>
+#include <set>
 
 #include <libportal/portal.h>
 #include <pipewire/pipewire.h>
@@ -87,6 +88,10 @@ private:
 
 private:
   Data m_Data;
+  std::set<uint32_t> m_PressedKeyboardKeys;
+  std::set<uint32_t> m_PressedKeyboardMods;
+  std::set<uint32_t> m_PressedMouseButtons;
+
 
 public:
   Remote();
