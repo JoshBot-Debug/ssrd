@@ -9,17 +9,18 @@ static const std::string HOME_DIR = getHomeDirectory();
 
 Server::~Server() {
   m_Running.store(false);
-  delete m_Remote;
-  m_Remote = nullptr;
+
+  if (m_InputThread.joinable())
+    m_InputThread.join();
 }
 
-void Server::initialize() {
+void Server::Initialize() {
   while (m_Running.load()) {
     // Start listening
     m_Socket.listen(1998);
 
     // Try authenticating
-    bool authenticated = authenticate();
+    bool authenticated = Authenticate();
     if (!authenticated) {
       m_Socket.close(Socket::Close::CLIENT);
       continue;
@@ -32,11 +33,11 @@ void Server::initialize() {
     }
 
     // Begin the remote connection
-    remote();
+    Remote();
   }
 }
 
-bool Server::authenticate() {
+bool Server::Authenticate() {
   std::vector<uint8_t> bytes = randomBytes(256);
 
   while (true) {
@@ -75,13 +76,10 @@ bool Server::authenticate() {
   return false;
 }
 
-void Server::remote() {
+void Server::Remote() {
   LOG("Secure connection established");
 
-  if (!m_Remote)
-    m_Remote = new Remote();
-
-  m_Remote->onResize([this](int width, int height) {
+  m_R2.OnResize([this](int width, int height) {
     m_Encoder.initialize(width, height);
 
     Payload payload;
@@ -92,7 +90,7 @@ void Server::remote() {
     m_Socket.send(payload.buffer.data(), payload.buffer.size());
   });
 
-  m_Remote->onStreamVideo([this](std::vector<uint8_t> raw, uint64_t time) {
+  m_R2.OnStreamVideo([this](std::vector<uint8_t> raw, uint64_t time) {
     std::vector<uint8_t> buffer = m_Encoder.encode(raw);
 
     if (buffer.size() == 0)
@@ -104,10 +102,10 @@ void Server::remote() {
     payload.set(buffer.data(), buffer.size());
 
     if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
-      m_Remote->end();
+      m_R2.EndSession();
   });
 
-  m_Remote->onStreamAudio([this](const Chunk &chunk, uint64_t time) {
+  m_R2.OnStreamAudio([this](const Chunk &chunk, uint64_t time) {
     auto resampled =
         m_AudioEncoder.LinearResample(chunk.buffer, chunk.sampleRate, 24000);
 
@@ -123,67 +121,61 @@ void Server::remote() {
     payload.set(buffer.data(), buffer.size());
 
     if (m_Socket.send(payload.buffer.data(), payload.buffer.size()) == -1)
-      m_Remote->end();
+      m_R2.EndSession();
   });
 
   LOG("Remote desktop begin");
 
-  m_Remote->onSessionDisconnected([this]() {
+  m_R2.OnSessionDisconnected([this]() {
     Payload payload;
     payload.set("end-session");
     m_Socket.send(payload.buffer.data(), payload.buffer.size());
+    m_Socket.close(Socket::Close::CLIENT);
+    LOG("Remote desktop end");
   });
 
-  m_Remote->onSessionConnected([this]() {
-    m_InputThread = std::thread([this]() {
-      while (m_Remote->isSessionActive()) {
+  m_R2.BeginSession();
 
-        std::vector<uint8_t> buffer = {};
+  while (m_R2.IsRemoteDesktopActive()) {
 
-        if (m_Socket.read(buffer) <= 0)
-          break;
+    if (!m_R2.IsSessionActive()) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      continue;
+    }
 
-        std::vector<uint8_t> bytes = Payload::get(0, buffer);
-        auto type = std::string(reinterpret_cast<const char *>(bytes.data()),
-                                bytes.size());
+    std::vector<uint8_t> buffer = {};
 
-        if (type == "key") {
-          auto key = Payload::toInt(Payload::get(1, buffer));
-          auto action = Payload::toInt(Payload::get(2, buffer));
-          auto mods = Payload::toInt(Payload::get(3, buffer));
-          m_Remote->keyboard(key, action, mods);
-        }
+    if (m_Socket.read(buffer) <= 0)
+      break;
 
-        if (type == "mouse-move") {
-          auto x = Payload::toDouble(Payload::get(1, buffer));
-          auto y = Payload::toDouble(Payload::get(2, buffer));
-          m_Remote->mouse(x, y);
-        }
+    std::vector<uint8_t> bytes = Payload::get(0, buffer);
+    auto type =
+        std::string(reinterpret_cast<const char *>(bytes.data()), bytes.size());
 
-        if (type == "mouse-button") {
-          auto button = Payload::toInt(Payload::get(1, buffer));
-          auto action = Payload::toInt(Payload::get(2, buffer));
-          auto mods = Payload::toInt(Payload::get(3, buffer));
-          m_Remote->mouseButton(button, action, mods);
-        }
+    if (type == "key") {
+      auto key = Payload::toInt(Payload::get(1, buffer));
+      auto action = Payload::toInt(Payload::get(2, buffer));
+      auto mods = Payload::toInt(Payload::get(3, buffer));
+      m_R2.Keyboard(key, action, mods);
+    }
 
-        if (type == "mouse-scroll") {
-          auto x = Payload::toInt(Payload::get(1, buffer));
-          auto y = Payload::toInt(Payload::get(2, buffer));
-          m_Remote->mouseScroll(x, y);
-        }
-      }
-    });
-  });
+    if (type == "mouse-move") {
+      auto x = Payload::toDouble(Payload::get(1, buffer));
+      auto y = Payload::toDouble(Payload::get(2, buffer));
+      m_R2.Mouse(x, y);
+    }
 
-  m_Remote->begin();
+    if (type == "mouse-button") {
+      auto button = Payload::toInt(Payload::get(1, buffer));
+      auto action = Payload::toInt(Payload::get(2, buffer));
+      auto mods = Payload::toInt(Payload::get(3, buffer));
+      m_R2.MouseButton(button, action, mods);
+    }
 
-  if (m_InputThread.joinable())
-    m_InputThread.join();
-
-  delete m_Remote;
-  m_Remote = nullptr;
-  m_Socket.close(Socket::Close::CLIENT);
-
-  LOG("Remote desktop end");
+    if (type == "mouse-scroll") {
+      auto x = Payload::toInt(Payload::get(1, buffer));
+      auto y = Payload::toInt(Payload::get(2, buffer));
+      m_R2.MouseScroll(x, y);
+    }
+  }
 }

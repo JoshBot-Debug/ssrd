@@ -358,18 +358,15 @@ Remote::Remote() {
     throw std::runtime_error("Failed to create glib loop");
 
   m_Data.g.context = g_main_loop_get_context(m_Data.g.loop);
-  if (!m_Data.g.loop)
+  if (!m_Data.g.context)
     throw std::runtime_error("Failed to get glib loop context");
-
-  xdp_portal_create_remote_desktop_session(
-      m_Data.g.portal,
-      (XdpDeviceType)(XDP_DEVICE_KEYBOARD | XDP_DEVICE_POINTER),
-      XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
-      XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
 }
 
 Remote::~Remote() {
   end();
+
+  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
+    g_main_loop_quit(m_Data.g.loop);
 
   if (m_Data.pw.videoStream.stream)
     pw_stream_destroy(m_Data.pw.videoStream.stream);
@@ -386,11 +383,15 @@ Remote::~Remote() {
   if (m_Data.pw.loop)
     pw_loop_destroy(m_Data.pw.loop);
 
-  if (m_Data.g.session && m_Data.g.sessionClosedHandle)
-    g_signal_handler_disconnect(m_Data.g.session, m_Data.g.sessionClosedHandle);
+  if (m_Data.g.session) {
+    xdp_session_close(m_Data.g.session);
 
-  if (m_Data.g.session)
+    if (m_Data.g.sessionClosedHandle)
+      g_signal_handler_disconnect(m_Data.g.session,
+                                  m_Data.g.sessionClosedHandle);
+
     g_object_unref(m_Data.g.session);
+  }
 
   if (m_Data.g.portal)
     g_object_unref(m_Data.g.portal);
@@ -437,9 +438,6 @@ void Remote::onSessionDisconnected(const std::function<void()> &callback) {
 void Remote::onSessionClosed(GObject *sourceObject, gpointer userData) {
   Data *data = static_cast<Data *>(userData);
 
-  if (data && data->g.loop && g_main_loop_is_running(data->g.loop))
-    g_main_loop_quit(data->g.loop);
-
   LOG("Session closed");
 
   if (data->onSessionDisconnected)
@@ -458,8 +456,7 @@ void Remote::onRemoteDesktopReady(GObject *source_object, GAsyncResult *res,
   data->g.sessionClosedHandle = g_signal_connect(
       data->g.session, "closed", G_CALLBACK(onSessionClosed), userData);
 
-  xdp_session_start(data->g.session, nullptr, nullptr, onSessionStart,
-                    userData);
+  xdp_session_start(data->g.session, nullptr, nullptr, onSessionStart, userData);
 }
 
 void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
@@ -474,9 +471,6 @@ void Remote::onSessionStart(GObject *source_object, GAsyncResult *res,
               << std::endl;
     if (error)
       g_error_free(error);
-
-    if (data->g.loop && g_main_loop_is_running(data->g.loop))
-      g_main_loop_quit(data->g.loop);
 
     return;
   }
@@ -755,6 +749,12 @@ void Remote::begin() {
   if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
     throw std::runtime_error("G Main loop was already running. Unexpected.");
 
+  xdp_portal_create_remote_desktop_session(
+      m_Data.g.portal,
+      (XdpDeviceType)(XDP_DEVICE_KEYBOARD | XDP_DEVICE_POINTER),
+      XDP_OUTPUT_MONITOR, XDP_REMOTE_DESKTOP_FLAG_NONE,
+      XDP_CURSOR_MODE_EMBEDDED, NULL, onRemoteDesktopReady, &m_Data);
+
   g_main_loop_run(m_Data.g.loop);
 }
 
@@ -776,9 +776,6 @@ void Remote::end() {
     m_PressedKeyboardMods.clear();
     m_PressedMouseButtons.clear();
   }
-
-  if (m_Data.g.loop && g_main_loop_is_running(m_Data.g.loop))
-    g_main_loop_quit(m_Data.g.loop);
 }
 
 void Remote::keyboard(int key, int action, int mods) {

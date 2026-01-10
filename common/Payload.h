@@ -55,8 +55,7 @@ struct Payload {
     std::memcpy(buffer.data() + csize + sizeof(uint32_t), value, size);
   };
 
-  static std::vector<uint8_t> get(uint32_t index,
-                                  const std::vector<uint8_t> &buffer) {
+  static std::vector<uint8_t> get(uint32_t index, const std::vector<uint8_t> &buffer) {
     std::vector<uint8_t> result = {};
 
     size_t offset = 0;

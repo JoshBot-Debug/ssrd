@@ -1,7 +1,8 @@
 #pragma once
 
 #include "OpenSSL.h"
-#include "Remote.h"
+// #include "Remote.h"
+#include "R2.h"
 #include "Encoder.h"
 #include "Socket.h"
 #include "AudioEncoder.h"
@@ -12,7 +13,8 @@
 
 class Server {
 private:
-  Remote *m_Remote = nullptr;
+  // Remote *m_Remote = nullptr;
+  R2 m_R2;
   Socket m_Socket;
   OpenSSL m_Openssl;
   Encoder m_Encoder;
@@ -26,9 +28,9 @@ public:
   Server() = default;
   ~Server();
 
-  void initialize();
+  void Initialize();
 
-  bool authenticate();
+  bool Authenticate();
 
-  void remote();
+  void Remote();
 };

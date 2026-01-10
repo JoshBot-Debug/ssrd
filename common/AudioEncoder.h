@@ -14,6 +14,7 @@ private:
   int m_Channels;
   int m_MaxBytes;
   std::vector<int16_t> m_Buffer;
+  std::mutex m_BufferMutex;
 
 public:
   AudioEncoder(int sampleRate, int bitrate = 64, int channels = 2,
@@ -40,6 +41,8 @@ public:
 
   std::vector<unsigned char> Encode(const float *ieeFloat, uint32_t samples,
                                     int frameSize) {
+    std::lock_guard<std::mutex> lock(m_BufferMutex);
+
     std::vector<int16_t> pcm16 = IEEEFloatToPCM16(ieeFloat, samples);
 
     m_Buffer.insert(m_Buffer.end(), pcm16.begin(), pcm16.end());
