@@ -5,7 +5,7 @@ This project is still in development but already functional enough to be tested.
 
 ---
 
-## 🚀 Features
+## Features
 
 - Secure socket-based communication (RSA key exchange).
 - Client/Server architecture.
@@ -14,7 +14,7 @@ This project is still in development but already functional enough to be tested.
 
 ---
 
-## 📦 Requirements
+## Requirements
 
 SSRD depends on the following libraries. **The same versions of FFmpeg libraries must be installed on both the client and server**, since shared libraries are used.
 
@@ -30,7 +30,7 @@ SSRD depends on the following libraries. **The same versions of FFmpeg libraries
 
 ---
 
-## 🛠️ Build Instructions
+## Build Instructions
 
 Clone the repository and build:
 
@@ -46,7 +46,7 @@ The compiled binaries will be available in the `build/` folder:
 
 ---
 
-## ▶️ Usage
+## Usage
 
 ### 1. Run the Server
 
@@ -86,7 +86,7 @@ From your client machine:
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 ssrd/
@@ -100,7 +100,7 @@ ssrd/
 
 ---
 
-## ⚠️ Notes
+## Notes
 
 - This project is **not production-ready** yet.
 - Error handling and additional security layers are still being improved.
@@ -109,6 +109,6 @@ ssrd/
 
 ---
 
-## 📜 License
+## License
 
 [MIT License](LICENSE) – free to use, modify, and distribute.
